@@ -1,0 +1,33 @@
+# ---- build outputs ----
+build_zig/
+build_win32/
+build/
+*.asi
+*.pdb
+*.obj
+*.lib
+
+# ---- test outputs ----
+tests/bin/
+tests/*.log
+tests/bili_auth_test.txt
+tests/songdb_test.tsv
+tests/songdb_test_alias.tsv
+tests/queue_test.tsv
+tests/queue_test_alias.tsv
+
+# ---- runtime data / credentials ----
+auth.txt
+cache/
+logs/
+*.log
+
+# ---- packaged artifacts ----
+release/
+archive/release-1.0.3/*.zip
+
+# ---- old extracted releases ----
+archive/release-1.0.3/
+
+# ---- internal notes ----
+HANDOFF.md

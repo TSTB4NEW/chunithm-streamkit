@@ -1,0 +1,151 @@
+; =====================================================================
+; chunithm-streamkit 配置 —— CHUNITHM MATE 2.50 (SDHD)
+; 放置位置：<游戏>\bin\chunithm_streamkit\chunithm_streamkit.ini
+; 所有采集只读，不修改游戏内存与判定逻辑。
+; =====================================================================
+
+[general]
+; 0=本次不启动插件（由启动器写入），1=启用
+enabled=1
+; 采样周期（毫秒），默认 33ms ≈ 30Hz
+poll_ms=33
+; 0=关闭 1=信息 2=调试
+log_level=2
+log_file=chunithm_streamkit.log
+profile=mate-2.50
+module=chusanApp.exe
+; 1 = 演示模式：不读游戏，模拟数据跑通 OBS 链路（联调用）
+demo=0
+
+[server]
+host=127.0.0.1
+port=8770
+; 相对路径会按插件数据目录解析，即 <游戏>\bin\chunithm_streamkit\web
+web_root=web
+
+[mate-2.50]
+
+; —— 判定计数（u16，值地址 = 字符串 + 0x238）——
+justice_crit.string_sig=NUM_jctirical
+justice_crit.string_off=0x238
+justice_crit.marker_off=0x234
+justice_crit.marker=03 00 00 00
+justice_crit.string_nul=1
+justice_crit.type=u16
+
+justice.string_sig=NUM_ctirical
+justice.string_off=0x238
+justice.marker_off=0x234
+justice.marker=03 00 00 00
+justice.string_nul=1
+justice.type=u16
+
+attack.string_sig=NUM_attack
+attack.string_off=0x238
+attack.marker_off=0x234
+attack.marker=03 00 00 00
+attack.string_nul=1
+attack.type=u16
+
+miss.string_sig=NUM_miss
+miss.string_off=0x238
+miss.marker_off=0x234
+miss.marker=03 00 00 00
+miss.string_nul=1
+miss.type=u16
+
+; —— EARLY / LATE ——
+; 数据来自 inline hook（RVA 0x7B2E1D）捕获的统计对象，偏移 0x68..0x84，
+; 下面的 string_sig 必须保持为空。注意 NUM_Fast/NUM_Late 那批是 UI 布局模板，
+; 值是 123456 / 88888 这类占位符，扫它们只会得到垃圾数据。
+fast.string_sig=
+fast.string_off=0x238
+fast.marker_off=0x234
+fast.marker=03 00 00 00
+fast.string_nul=1
+fast.type=u32
+
+late.string_sig=
+late.string_off=0x238
+late.marker_off=0x234
+late.marker=03 00 00 00
+late.string_nul=1
+late.type=u32
+
+fast_jc.string_sig=
+fast_jc.string_off=0x238
+fast_jc.marker_off=0x234
+fast_jc.marker=03 00 00 00
+fast_jc.string_nul=1
+fast_jc.type=u32
+
+late_jc.string_sig=
+late_jc.string_off=0x238
+late_jc.marker_off=0x234
+late_jc.marker=03 00 00 00
+late_jc.string_nul=1
+late_jc.type=u32
+
+fast_attack.string_sig=
+fast_attack.string_off=0x238
+fast_attack.marker_off=0x234
+fast_attack.marker=03 00 00 00
+fast_attack.string_nul=1
+fast_attack.type=u32
+
+late_attack.string_sig=
+late_attack.string_off=0x238
+late_attack.marker_off=0x234
+late_attack.marker=03 00 00 00
+late_attack.string_nul=1
+late_attack.type=u32
+
+; —— 分数 ——
+; 分数 inline hook（在 DllMain 极早期安装，避开竞态）：0x7B2E5B
+score.hook=1
+score.type=u32
+; combo / max_combo 全部由判定差值推断，不需要 hook
+combo.hook=0
+combo.type=u32
+max_combo.hook=0
+max_combo.type=u32
+
+note_total.chain=
+note_total.type=u32
+
+; —— 歌曲信息 ——
+; 歌曲 ID：inline hook 捕获（0x9B0648: mov [esi+0x60], eax）
+music_id.hook=1
+music_id.type=u32
+; 难度：inline hook 捕获（0x8B76CF: mov byte [eax+0x2C0], bl），可实时高亮当前难度
+difficulty.hook=1
+difficulty.type=u32
+; 全内存扫描兜底：会周期性卡顿，默认关闭
+difficulty.scan=0
+
+event_source=auto
+
+[mate-2.50.ring]
+enabled=0
+
+; =====================================================================
+; 弹幕 / 点歌模块（可选功能，默认关闭）
+; 关闭时：不建立任何连接、不启动线程、不占用资源
+; =====================================================================
+[danmaku]
+; 0 = 关闭（默认），1 = 开启
+enabled=0
+; B站直播间号（可填短号/UID，插件会自动解析成真实 room_id）
+room_id=
+; 3 = Brotli 压缩（B站当前只接受 3；插件已内置解码器）
+protover=3
+
+[songrequest]
+; 0 = 关闭（默认），1 = 开启点歌队列
+; 需要同时开启 [danmaku]，否则收不到点歌弹幕
+enabled=0
+; 队列容量（1-30；界面只显示前 4 张，多余显示 +N）
+max=12
+; 房主 UID：只有该用户能发「删歌 / 清空点歌」
+; 留空 = 使用扫码登录账号的 UID
+owner_uid=

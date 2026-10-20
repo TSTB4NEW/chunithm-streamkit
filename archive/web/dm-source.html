@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>弹幕源 · chunithm-streamkit</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: transparent; overflow: hidden; height: 100%; }
+  body {
+    font-family: "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+    color: #fff;
+  }
+  #wrap { position: fixed; left: 0; top: 0; right: 0; bottom: 0; padding: 6px; }
+  #list { display: flex; flex-direction: column; gap: 4px; justify-content: flex-end;
+          height: 100%; overflow: hidden; }
+  .dm {
+    font-size: 17px; line-height: 1.35; font-weight: 600;
+    padding: 3px 9px; border-radius: 7px;
+    background: rgba(0, 0, 0, .55);
+    text-shadow: 0 1px 3px rgba(0,0,0,.9);
+    word-break: break-all;
+    animation: in .22s ease;
+  }
+  @keyframes in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; } }
+  .dm .u { color: #7cc0ff; font-weight: 700; margin-right: 4px; }
+  .dm .u:empty { display: none; }
+  #st {
+    position: fixed; right: 6px; top: 6px;
+    font-size: 11px; color: #8a91a8; background: rgba(0,0,0,.5);
+    padding: 2px 8px; border-radius: 5px;
+  }
+  #st.on { color: #5aff9a; }
+  #st.err { color: #ff5a5a; }
+</style>
+</head>
+<body>
+<div id="wrap"><div id="list"></div></div>
+<div id="st">连接中…</div>
+<script>
+(function () {
+  'use strict';
+  var STATUS = document.getElementById('st');
+  var LIST = document.getElementById('list');
+  var PLUGIN = 'http://127.0.0.1:8770/dm';
+  var MAXLINES = 14;
+
+  var q = new URLSearchParams(location.search);
+  var code = q.get('code') || q.get('room') || '123456';
+
+  // ---------- 极简 protobuf ----------
+  function pbFields(u8) {
+    var out = [], p = 0;
+    function varint() {
+      var v = 0, s = 0, b;
+      do {
+        if (p >= u8.length) return null;
+        b = u8[p++]; v += (b & 0x7f) * Math.pow(2, s); s += 7;
+      } while (b & 0x80);
+      return v;
+    }
+    while (p < u8.length) {
+      var tag = varint(); if (tag === null) break;
+      var f = Math.floor(tag / 8), wt = tag % 8;
+      if (!f) break;
+      if (wt === 0) { var v = varint(); if (v === null) break; out.push({ f: f, wt: 0, val: v }); }
+      else if (wt === 2) {
+        var n = varint(); if (n === null || p + n > u8.length) break;
+        out.push({ f: f, wt: 2, val: u8.subarray(p, p + n) }); p += n;
+      }
+      else if (wt === 5) p += 4;
+      else if (wt === 1) p += 8;
+      else break;
+    }
+    return out;
+  }
+  function utf8(u8) {
+    try { return new TextDecoder('utf-8').decode(u8); } catch (e) { return ''; }
+  }
+
+  // ---------- 渲染 + 转发 ----------
+  function push(user, text) {
+    if (!text) return;
+    var d = document.createElement('div');
+    d.className = 'dm';
+    var u = document.createElement('span');
+    u.className = 'u'; u.textContent = user || '';
+    var t = document.createElement('span');
+    t.textContent = text;
+    d.appendChild(u); d.appendChild(t);
+    LIST.appendChild(d);
+    while (LIST.children.length > MAXLINES) LIST.removeChild(LIST.firstChild);
+
+    try {
+      fetch(PLUGIN, {
+        method: 'POST', mode: 'cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user: user || '', text: text })
+      }).catch(function () {});
+    } catch (e) {}
+  }
+
+  // 从内层 protobuf 中取文本（field 3 通常是弹幕内容）
+  function handleInner(u8) {
+    var fs = pbFields(u8);
+    var text = '', user = '';
+    for (var i = 0; i < fs.length; ++i) {
+      if (fs[i].wt !== 2) continue;
+      var s = utf8(fs[i].val);
+      if (fs[i].f === 3 && s) text = s;
+      else if (fs[i].f === 2 && s && !user) user = s;
+    }
+    if (!text) {
+      // 兜底：取最长的可读串
+      var best = '';
+      for (var j = 0; j < fs.length; ++j) {
+        if (fs[j].wt !== 2) continue;
+        var t = utf8(fs[j].val);
+        if (t.length > best.length) best = t;
+      }
+      text = best;
+    }
+    if (text) push(user, text);
+  }
+
+  var ws = null, retry = null;
+
+  function connect() {
+    var url = 'wss://ws.huixinghao.cn/ws?code=' + encodeURIComponent(code) + '&plug_id=255';
+    try { ws = new WebSocket(url); } catch (e) {
+      STATUS.textContent = '无法创建连接'; STATUS.className = 'err'; return;
+    }
+    ws.binaryType = 'arraybuffer';
+    ws.onopen = function () { STATUS.textContent = '已连接'; STATUS.className = 'on'; };
+    ws.onerror = function () { STATUS.textContent = '连接错误'; STATUS.className = 'err'; };
+    ws.onclose = function (ev) {
+      STATUS.textContent = '已断开 ' + ev.code; STATUS.className = 'err';
+      retry = setTimeout(connect, 3000);
+    };
+    ws.onmessage = function (e) {
+      if (typeof e.data === 'string') {
+        var m = e.data.match(/"content"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+        if (m) { try { push('', JSON.parse('"' + m[1] + '"')); } catch (x) {} }
+        return;
+      }
+      try {
+        var buf = new Uint8Array(e.data);
+        var outer = pbFields(buf);
+        var inner = null;
+        for (var i = 0; i < outer.length; ++i) {
+          if (outer[i].f === 2 && outer[i].wt === 2) inner = outer[i].val;
+        }
+        if (inner) handleInner(inner);
+      } catch (err) {}
+    };
+  }
+
+  connect();
+})();
+</script>
+</body>
+</html>

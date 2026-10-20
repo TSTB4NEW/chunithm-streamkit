@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>弹幕调试 · chunithm-streamkit</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 14px; background: #14161d; color: #e6e9f2;
+         font: 13px/1.5 Consolas, "Microsoft YaHei", monospace; }
+  h2 { font-size: 15px; margin: 0 0 10px; font-weight: 600; }
+  .row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+  input { flex: 1 1 320px; padding: 6px 9px; border-radius: 6px;
+          border: 1px solid #333a4d; background: #1c1f29; color: #e6e9f2; }
+  button { padding: 6px 14px; border-radius: 6px; border: 0; cursor: pointer;
+           background: #3b6ef5; color: #fff; font-weight: 600; }
+  button.off { background: #40465a; }
+  #status { margin-left: auto; font-size: 12px; color: #8a91a8; }
+  #status.on { color: #5aff9a; }
+  #status.err { color: #ff5a5a; }
+  #log { height: calc(100vh - 130px); overflow: auto; background: #0e1015;
+         border: 1px solid #262b38; border-radius: 8px; padding: 10px; }
+  .ln { padding: 3px 0; border-bottom: 1px solid #1b1f29; word-break: break-all; }
+  .id { color: #7cc0ff; font-weight: 700; }
+  .hex { color: #6b7286; }
+  .txt { color: #ffd24a; }
+  .sys { color: #5aff9a; }
+</style>
+</head>
+<body>
+<h2>直播间弹幕调试</h2>
+<div class="row">
+  <input id="code" placeholder="填入 Code（例如 C7B176PY9VY89）">
+  <button id="conn">连接</button>
+  <button id="clr">清空</button>
+  <span id="status">未连接</span>
+</div>
+<div id="log"></div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var logEl = $('log'), statusEl = $('status');
+  var ws = null, retryTimer = null, wantOpen = false;
+
+  // ---- 极简 protobuf 读取：只需 varint / length-delimited ----
+  function Reader(u8) { this.u8 = u8; this.p = 0; }
+  Reader.prototype.varint = function () {
+    var v = 0, shift = 0;
+    while (this.p < this.u8.length) {
+      var b = this.u8[this.p++];
+      v += (b & 0x7f) * Math.pow(2, shift);
+      if (!(b & 0x80)) break;
+      shift += 7;
+      if (shift > 63) break;
+    }
+    return v;
+  };
+  Reader.prototype.bytes = function (n) {
+    var s = this.u8.subarray(this.p, this.p + n);
+    this.p += n;
+    return s;
+  };
+  // 返回 [{f, wt, val}]，val 为数字或 Uint8Array
+  function pbFields(u8) {
+    var r = new Reader(u8), out = [];
+    while (r.p < u8.length) {
+      var tag = r.varint();
+      var f = Math.floor(tag / 8), wt = tag % 8;
+      if (f === 0) break;
+      if (wt === 0) out.push({ f: f, wt: 0, val: r.varint() });
+      else if (wt === 2) { var n = r.varint(); out.push({ f: f, wt: 2, val: r.bytes(n) }); }
+      else if (wt === 5) { out.push({ f: f, wt: 5, val: r.bytes(4) }); }
+      else if (wt === 1) { out.push({ f: f, wt: 1, val: r.bytes(8) }); }
+      else break;
+    }
+    return out;
+  }
+  function hex(u8, max) {
+    var n = Math.min(u8.length, max || 48), a = [];
+    for (var i = 0; i < n; ++i) a.push(('0' + u8[i].toString(16)).slice(-2));
+    return a.join(' ') + (u8.length > n ? ' …' : '');
+  }
+  // 从字节里抽可读串（粗略，用于肉眼定位弹幕文本）
+  function readable(u8) {
+    var s = '', out = [];
+    for (var i = 0; i < u8.length; ++i) {
+      var c = u8[i];
+      if (c >= 32 && c < 127) { s += String.fromCharCode(c); }
+      else { if (s.length >= 3) out.push(s); s = ''; }
+    }
+    if (s.length >= 3) out.push(s);
+    try {
+      var all = new TextDecoder('utf-8', { fatal: false }).decode(u8);
+      out.push('utf8:' + all.replace(/[\x00-\x1f]/g, ' ').slice(0, 80));
+    } catch (e) {}
+    return out.join(' | ');
+  }
+
+  function line(html, cls) {
+    var d = document.createElement('div');
+    d.className = 'ln' + (cls ? ' ' + cls : '');
+    d.innerHTML = html;
+    logEl.appendChild(d);
+    while (logEl.children.length > 400) logEl.removeChild(logEl.firstChild);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+  function sys(msg) { line('<span class="sys">' + msg + '</span>'); }
+
+  var stat = { frames: 0, byId: {} };
+
+  function onFrame(buf) {
+    var u8 = new Uint8Array(buf);
+    var outer;
+    try { outer = pbFields(u8); } catch (e) { sys('decode error: ' + e); return; }
+    var msgId = null, data = null;
+    for (var i = 0; i < outer.length; ++i) {
+      if (outer[i].f === 1 && outer[i].wt === 0) msgId = outer[i].val;
+      if (outer[i].f === 2 && outer[i].wt === 2) data = outer[i].val;
+    }
+    stat.frames++;
+    if (msgId !== null) stat.byId[msgId] = (stat.byId[msgId] || 0) + 1;
+
+    var body = data || u8;
+    var inner = [];
+    try { inner = pbFields(body); } catch (e) {}
+    var innerDesc = inner.map(function (x) {
+      if (x.wt === 0) return x.f + '=' + x.val;
+      return x.f + ':#' + x.val.length;
+    }).join(' ');
+
+    line('<span class="id">msgId=' + msgId + '</span> ' +
+         '<span class="hex">len=' + u8.length + ' | inner: ' + innerDesc + '</span><br>' +
+         '<span class="hex">' + hex(body, 64) + '</span><br>' +
+         '<span class="txt">' + readable(body) + '</span>');
+  }
+
+  function connect() {
+    var code = $('code').value.trim();
+    if (!code) { statusEl.textContent = '请填 Code'; statusEl.className = 'err'; return; }
+    localStorage.setItem('blc_code', code);
+    wantOpen = true;
+    openWs(code);
+  }
+
+  function openWs(code) {
+    if (ws) { try { ws.close(); } catch (e) {} ws = null; }
+    var url = 'wss://ws.huixinghao.cn/ws?code=' + encodeURIComponent(code) + '&plug_id=255';
+    sys('connecting ' + url);
+    statusEl.textContent = '连接中…'; statusEl.className = '';
+    try { ws = new WebSocket(url); } catch (e) { sys('new WebSocket 失败: ' + e); return; }
+    ws.binaryType = 'arraybuffer';
+    ws.onopen = function () {
+      statusEl.textContent = '已连接'; statusEl.className = 'on';
+      sys('已连接，等待弹幕…');
+    };
+    ws.onmessage = function (e) {
+      if (typeof e.data === 'string') { sys('TEXT: ' + e.data.slice(0, 300)); return; }
+      onFrame(e.data);
+    };
+    ws.onerror = function () { sys('WebSocket error'); };
+    ws.onclose = function (ev) {
+      statusEl.textContent = '已断开 ' + ev.code; statusEl.className = 'err';
+      sys('onclose code=' + ev.code + ' reason=' + (ev.reason || ''));
+      if (wantOpen) {
+        retryTimer = setTimeout(function () { openWs(code); }, 2000);
+      }
+    };
+  }
+
+  $('conn').addEventListener('click', function () {
+    if (wantOpen) {
+      wantOpen = false;
+      clearTimeout(retryTimer);
+      if (ws) { try { ws.close(); } catch (e) {} }
+      statusEl.textContent = '已断开'; statusEl.className = 'off';
+      return;
+    }
+    connect();
+  });
+  $('clr').addEventListener('click', function () { logEl.innerHTML = ''; stat = { frames: 0, byId: {} }; });
+  $('code').value = localStorage.getItem('blc_code') || '';
+  sys('把直播间弹幕源的 Code 填到上面，点连接。');
+  sys('连上后请让人在直播间发几条弹幕，观察 msgId 和文本。');
+})();
+</script>
+</body>
+</html>

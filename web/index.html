@@ -1,0 +1,1408 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>CHUNITHM StreamKit Overlay</title>
+<style>
+  :root {
+    /* 判定配色（游戏内）：JC 金 / J 橙 / ATTACK 绿 / MISS 灰 */
+    --jc: #ffcf3a;
+    --ju: #ff9a3a;
+    --at: #4ade80;
+    --mi: #9aa0b0;
+    --fg: #eef2ff;
+    --dim: #8a91a8;
+    --bg: rgba(10, 12, 24, 0.96);
+    --panel-w: 452px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: transparent; }
+  body {
+    font-family: "Segoe UI", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+    color: var(--fg);
+    /* 等比例放大：452px 内部布局 → 570px 输出 */
+    --ui-scale: 1.26106;
+    width: var(--panel-w);
+    zoom: var(--ui-scale);
+  }
+
+  #stack {
+    position: relative;
+    background: var(--bg);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 12px;
+    backdrop-filter: blur(6px);
+    box-shadow: 0 4px 24px rgba(0,0,0,.45);
+    overflow: hidden;
+  }
+  #stack:has(#panel.hidden):has(#queuePanel.hidden) { display: none; }
+  #panel {
+    padding: 12px 16px 16px;
+    transition: opacity .35s ease, border-color .35s ease;
+    overflow: hidden;
+  }
+  #panel.hidden { display: none; }
+
+  /* 顶部难度色条 */
+  .diffbar {
+    height: 4px;
+    margin: -12px -16px 12px;
+    background: transparent;
+    transition: background .35s ease;
+  }
+
+  /* 歌曲区：封面左、文字右；难度栏在文字列底部，与封面底部对齐 */
+  .song { display: flex; gap: 12px; align-items: stretch; margin-top: 20px; }
+  .songtext {
+    flex: 1 1 auto; min-width: 0;
+    display: flex; flex-direction: column; align-items: stretch;
+  }
+  .title {
+    font-size: 26px; font-weight: 700; line-height: 1.3;
+    text-shadow: 0 1px 4px rgba(0,0,0,.8);
+    overflow: hidden; white-space: nowrap;
+  }
+  .artist {
+    font-size: 15px; color: #b9bfd4; margin-top: auto;
+    overflow: hidden; white-space: nowrap; text-align: left;
+  }
+  .jacket {
+    width: 142px; height: 142px; flex: 0 0 142px;
+    border-radius: 8px; object-fit: cover;
+    background: rgba(255,255,255,.06);
+    box-shadow: 0 2px 10px rgba(0,0,0,.5);
+  }
+  .standbyart {
+    width: 142px; height: 142px; flex: 0 0 142px;
+    border-radius: 8px;
+    background: linear-gradient(145deg, #141826 0%, #0a0c14 100%);
+    border: 1px solid rgba(255,255,255,.06);
+    box-shadow: inset 0 0 32px rgba(0,0,0,.65);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 11px;
+  }
+  .standbyart .eq { display: flex; gap: 4px; align-items: flex-end; height: 40px; }
+  .standbyart .eq i {
+    width: 4px; height: 100%; border-radius: 2px;
+    background: #596179; transform-origin: bottom;
+    animation: eqbar 1.15s ease-in-out infinite;
+  }
+  .standbyart .eq i:nth-child(1) { animation-delay: -.9s; }
+  .standbyart .eq i:nth-child(2) { animation-delay: -.55s; }
+  .standbyart .eq i:nth-child(3) { animation-delay: -.25s; }
+  .standbyart .eq i:nth-child(4) { animation-delay: -.7s; }
+  .standbyart .eq i:nth-child(5) { animation-delay: -.4s; }
+  @keyframes eqbar {
+    0%, 100% { transform: scaleY(.28); opacity: .55; }
+    50%      { transform: scaleY(.95); opacity: 1; }
+  }
+  .standbyart .slogo {
+    font-size: 9px; font-weight: 700; letter-spacing: 2.2px;
+    color: #5d6680;
+  }
+  .standby-diffs {
+    width: 100%; height: 64px; margin-top: 8px;
+    display: flex; gap: 6px;
+  }
+  .standby-diffs b {
+    flex: 1 1 0; display: flex; align-items: center; justify-content: center;
+    border: 3px solid rgba(255,255,255,.16); border-radius: 4px;
+    background: rgba(255,255,255,.02);
+    color: rgba(255,255,255,.22); font-size: 18px; font-weight: 700;
+    transform: skewX(-12deg);
+  }
+  .badges { display: flex; gap: 6px; margin-top: 5px; flex-wrap: wrap; }
+  .badge {
+    font-size: 11px; font-weight: 700; letter-spacing: .4px;
+    padding: 2px 7px; border-radius: 999px;
+    background: rgba(255,255,255,.08); color: #c6cbe0;
+  }
+  .badge.demo { background: rgba(255,90,90,.18); color: #ff6a6a; }
+  #srbar {
+    display: flex; align-items: center;
+    padding: 8px 14px 10px;
+  }
+  .srtoggle {
+    display: inline-flex; align-items: center; gap: 5px;
+    border: 1px solid rgba(255,255,255,.12); border-radius: 7px;
+    background: rgba(10, 12, 24, .86);
+    padding: 3px 7px; cursor: pointer; font-family: inherit;
+    transition: border-color .45s ease, background .45s ease;
+  }
+  .srtoggle .lbl {
+    font-size: 9px; font-weight: 700; letter-spacing: .3px;
+    color: #aeb6cc;
+  }
+  .srtoggle b { font-size: 8px; color: #ff6a6a; letter-spacing: .3px; }
+  .srtoggle .sw {
+    width: 24px; height: 13px; border-radius: 999px;
+    background: rgba(255,255,255,.14); position: relative;
+    transition: background .45s ease;
+  }
+  .srtoggle .sw i {
+    position: absolute; left: 2px; top: 2px;
+    width: 9px; height: 9px; border-radius: 50%;
+    background: #9aa3b8; transition: left .45s ease, background .45s ease;
+  }
+  .srtoggle.on {
+    border-color: rgba(90,255,154,.40);
+    background: rgba(12, 30, 20, .90);
+  }
+  .srtoggle.on .lbl { color: #d9ffe8; }
+  .srtoggle.on b { color: #5aff9a; }
+  .srtoggle.on .sw { background: #5aff9a; }
+  .srtoggle.on .sw i { left: 13px; background: #0b0d14; }
+  #panel.preview .jacket { filter: brightness(.88); }
+
+  /* 超长曲名 / 曲师：由 JS 统一调度滚动节奏 */
+  .marq-inner { display: inline-block; white-space: nowrap; will-change: transform; }
+  .title, .artist { transition: opacity .3s ease; }
+
+  /* 切歌：曲名区从左滑入、封面从右滑入（慢→快→慢） */
+  @keyframes slideInLeft {
+    from { opacity: 0; transform: translateX(-30px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes slideInRight {
+    from { opacity: 0; transform: translateX(30px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes fadeRow {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  /* 切歌：先淡出 → 换内容 → 左右内滑淡入（慢→快→慢） */
+  #panel.song-fade .song,
+  #panel.song-fade .diffrow {
+    opacity: 0;
+    transition: opacity .17s ease;
+  }
+  #panel.song-in .songtext {
+    animation: slideInLeft .36s cubic-bezier(.65, 0, .35, 1) both;
+  }
+  #panel.song-in .jacket {
+    animation: slideInRight .36s cubic-bezier(.65, 0, .35, 1) both;
+  }
+  #panel.song-in .diffrow {
+    animation: fadeRow .32s cubic-bezier(.65, 0, .35, 1) .07s both;
+  }
+  .jacket { transition: opacity .35s ease, transform .35s ease; }
+
+  /* 6 档难度：平行四边形；绿/黄上下叠成一列以缩短总长 */
+  .diffrow {
+    display: flex; gap: 8px; margin-top: auto; padding: 9px 0 0;
+    align-items: stretch;
+    height: 76px;
+  }
+  .diffstack {
+    flex: .78 1 0; min-width: 0;
+    display: flex; flex-direction: column; gap: 5px;
+  }
+  .diffstack .diffseg { flex: 1 1 0; font-size: 15px; }
+  .diffseg {
+    flex: 1 1 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    min-width: 0;
+    border-radius: 4px;
+    padding: 2px;
+    font-size: 22px; font-weight: 700;
+    letter-spacing: .2px;
+    border: 3px solid rgba(255,255,255,.55);
+    opacity: .72;
+    position: relative; overflow: visible;
+    transform: skewX(-12deg);
+    transition: opacity .25s ease, border-color .25s ease, box-shadow .25s ease;
+  }
+  /* 常用难度（红/紫/黑）更宽更亮 */
+  .diffseg[data-d="2"] { flex: 1.10 1 0; opacity: .78; }
+  .diffseg[data-d="3"] { flex: 1.24 1 0; opacity: .86; }
+  .diffseg[data-d="4"] { flex: 1.24 1 0; opacity: .76; }
+  .diffseg[data-d="5"] { flex: 1.10 1 0; opacity: .80; }
+  /* 内容反向倾斜，保持文字竖直 */
+  .diffseg > * { transform: skewX(12deg); }
+  /* 定数右上角的上标 + */
+  .diffseg .cv { position: relative; display: inline-block; }
+  .diffseg .cv sup {
+    position: absolute; top: -.32em; right: -.52em;
+    font-size: .55em; font-weight: 700; line-height: 1;
+    opacity: .95;
+  }
+  /* 只显示定数，不显示难度类别 */
+  .diffseg .lv { display: none; }
+  .diffseg.we .lv { font-size: 8.5px; letter-spacing: 0; }
+  /* 选中难度：纯色平涂 + 同色描边，扁平无纵深 */
+  .diffseg.cur {
+    opacity: 1;
+    border-color: currentColor;
+  }
+  /* ULTIMA：深棕红斜纹底，和 EXPERT 的亮红边框明显区分 */
+  .diffseg.ultima {
+    background:
+      repeating-linear-gradient(135deg, rgba(255,255,255,.06) 0 2px, rgba(255,255,255,0) 2px 7px),
+      linear-gradient(135deg, #43100f 0%, #1c0507 100%) !important;
+    color: #b94343 !important;
+  }
+  .diffseg.ultima.cur {
+    background:
+      repeating-linear-gradient(135deg, rgba(255,255,255,.07) 0 2px, rgba(255,255,255,0) 2px 7px),
+      linear-gradient(135deg, #6b1114 0%, #2b0709 55%, #0a0a0d 100%) !important;
+    color: #ff3b3b !important;
+  }
+  .diffseg.ultima .lv,
+  .diffseg.ultima .cv { position: relative; z-index: 1; text-shadow: 0 1px 2px rgba(0,0,0,.75); }
+  /* WORLD'S END：彩色渐变 */
+  .diffseg.we {
+    background: linear-gradient(135deg,#ff5a5a,#ffb03a,#ffd24a,#5aff9a,#58c0ff,#b45aff,#ff5ad8) !important;
+    color: #10101a !important;
+  }
+  .diffseg.we .lv { color: #10101a; opacity: .9; }
+  /* 没有该难度：不显示 */
+  .diffseg.missing { display: none !important; }
+
+  /* 游玩区（待机时收起） */
+  .playonly {
+    max-height: 420px;
+    opacity: 1;
+    transition: max-height .55s ease, opacity .4s ease;
+    overflow: hidden;
+  }
+  #panel.state-idle .playonly { max-height: 0; opacity: 0; pointer-events: none; }
+  .scoreline, .judges, .feed { transition: opacity .4s ease; }
+  #panel.state-play .scoreline { transition-delay: 0ms; }
+  #panel.state-play .judges    { transition-delay: 70ms; }
+  #panel.state-play .feed      { transition-delay: 140ms; }
+
+  .scoreline {
+    display: flex; justify-content: space-between; align-items: baseline;
+    border-top: 1px solid rgba(255,255,255,.10);
+    margin-top: 12px; padding-top: 10px;
+  }
+  .score {
+    font-size: 32px; font-weight: 800; letter-spacing: 1px;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 2px 8px rgba(0,0,0,.6);
+  }
+  .combo { font-size: 14px; color: var(--dim); font-variant-numeric: tabular-nums; }
+  /* 连击数字：追平最大值时放大，断连后回落 */
+  .combo b {
+    color: #fff; font-size: 24px;
+    display: inline-block;
+    transition: font-size .28s cubic-bezier(.4,0,.2,1), color .28s ease;
+  }
+  .combo b.full { font-size: 31px; color: #fff; }
+  /* 当前连击 = 最大连击时只显示当前值，否则显示 /最大值（带过渡） */
+  #maxcombo {
+    display: inline-block; overflow: hidden; white-space: nowrap;
+    max-width: 9ch; opacity: 1; vertical-align: baseline;
+    transition: max-width .3s cubic-bezier(.4,0,.2,1),
+                opacity .22s ease, margin-left .3s ease;
+  }
+  #maxcombo.off { max-width: 0; opacity: 0; margin-left: 0; }
+
+  .judges {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 4px 20px; margin-top: 12px;
+    border-top: 1px solid rgba(255,255,255,.08); padding-top: 10px;
+  }
+  .jcell { display: flex; justify-content: space-between; align-items: baseline; }
+  .jcell .l { font-size: 15px; font-weight: 700; letter-spacing: .5px; }
+  .jcell .n { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .jcell.jc .n, .jcell.jc .l { color: var(--jc); }
+  .jcell.ju .n, .jcell.ju .l { color: var(--ju); }
+  .jcell.at .n, .jcell.at .l { color: var(--at); }
+  .jcell.mi .n, .jcell.mi .l { color: var(--mi); }
+
+  /* EARLY / LATE：总数徽章 + 各判定数字两侧的小字 */
+  .flrow { display: flex; gap: 8px; margin-top: 9px; }
+  .flrow.hidden { display: none; }
+  .flchip {
+    flex: 1 1 0;
+    font-size: 12px; font-weight: 700; letter-spacing: .4px;
+    padding: 2px 8px; border-radius: 5px;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+  }
+  .flchip.fast { background: rgba(90,170,255,.16); color: #7cc0ff; }
+  .flchip.late { background: rgba(255,70,70,.18); color: #ff5a5a; }
+  .flchip b { font-size: 14px; }
+
+  .jcell .v { display: inline-flex; align-items: baseline; gap: 7px; }
+  .jcell .fl {
+    font-style: normal; font-size: 12px; font-weight: 600;
+    font-variant-numeric: tabular-nums; opacity: .8;
+  }
+  .jcell .fl.late { color: #ff5a5a; }
+  .jcell .fl.fast { color: #7cc0ff; }
+  .jcell .fl.zero { opacity: .28; }
+
+  .feedrow {    display: flex; gap: 8px; align-items: flex-start;
+    margin-top: 10px;
+    border-top: 1px solid rgba(255,255,255,.08); padding-top: 9px;
+  }  /* 固定达成状态：JC / AJ / FC */
+  .fcstat {
+    flex: 0 0 auto;
+    font-size: 14px; font-weight: 800; letter-spacing: .6px;
+    padding: 3px 10px; border-radius: 6px;
+    animation: pop .25s ease;
+  }
+  .fcstat.hidden { display: none; }
+  .fcstat.jc { background: var(--jc); color: #16130a; }
+  .fcstat.aj { background: var(--ju); color: #1a0e04; }
+  .fcstat.fc { background: var(--at); color: #06130a; }
+  /* 最低档：灰色迷你栏 + 斜杠 */
+  .fcstat.dead {
+    background: rgba(255,255,255,.08);
+    color: #6b7286;
+    font-size: 12px;
+    padding: 1px 7px;
+    line-height: 1.5;
+  }
+
+  .feed {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex; gap: 4px; min-height: 22px; flex-wrap: wrap;
+    justify-content: flex-start; align-content: flex-start;
+  }
+  .chip {
+    font-size: 12px; font-weight: 700; padding: 2px 7px; border-radius: 5px;
+    animation: pop .22s ease;
+  }
+  .chip.JC { color: #16130a; background: var(--jc); }
+  .chip.JU { color: #1a0e04; background: var(--ju); }
+  .chip.AT { color: #06130a; background: var(--at); }
+  .chip.MI { color: #16181f; background: var(--mi); }
+  .chip .dl { font-size: 10px; opacity: .8; }
+  @keyframes pop { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  #status { font-size: 11px; color: var(--dim); margin-top: 6px; display: none; }
+  body.debug #status { display: block; }
+
+  /* —— 主面板下方的队列区：与主面板共用一张卡 —— */
+  .sidecard {
+    padding: 10px 14px 12px;
+    overflow: hidden;
+  }
+  .sidecard.hidden { display: none; }
+  #queuePanel { margin-top: 0; }
+  .slist { display: flex; flex-direction: column; }
+  .qgrid { display: flex; gap: 7px; align-items: stretch; }
+  .qgrid.hidden { display: none; }
+
+  /* 固定 4 个候选位；没有点歌时保留空位 */
+  .qslot {
+    flex: 1 1 0; min-width: 0; position: relative;
+    border: 3px solid rgba(255,255,255,.42);
+    border-radius: 10px;
+    padding: 3px 3px 5px;
+    background: rgba(255,255,255,.03);
+    animation: cardRise .65s cubic-bezier(.2,.8,.2,1);
+    transition: border-color .3s ease, box-shadow .3s ease;
+  }
+  .qslot.empty {
+    border-style: dashed;
+    border-color: rgba(255,255,255,.18);
+    background: rgba(255,255,255,.012);
+    animation: none;
+  }
+  /* ULTIMA：石墨底 + 白边 + 底部红线（B + D） */
+  .qslot.ultima {
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.06), transparent 22%),
+      linear-gradient(160deg, #1b1d22 0%, #0b0c0f 70%);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.14),
+                inset 0 -2px 0 rgba(230,40,40,.70);
+  }
+  /* 其他难度：同色系低透明度底，保持和边框一致的主题 */
+  .qslot.d0, .qmini.d0, .choice.d0 { background: rgba(90,255,154,.07); }
+  .qslot.d1, .qmini.d1, .choice.d1 { background: rgba(255,176,58,.08); }
+  .qslot.d2, .qmini.d2, .choice.d2 { background: rgba(255,90,60,.09); }
+  .qslot.d3, .qmini.d3, .choice.d3 { background: rgba(180,90,255,.09); }
+  .qslot.d5, .qmini.d5, .choice.d5 {
+    background: linear-gradient(135deg, rgba(255,90,90,.08), rgba(180,90,255,.10));
+  }
+  .qslot .art {
+    position: relative; width: 100%; aspect-ratio: 1 / 1;
+    border-radius: 7px; overflow: hidden; background: rgba(255,255,255,.06);
+  }
+  .qslot.empty .art { background: rgba(255,255,255,.02); }
+  .qslot .art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .qslot > * { position: relative; z-index: 1; }
+  .qslot .pbadge {
+    display: none; position: absolute; left: 5px; top: 5px; z-index: 2;
+    padding: 1px 5px; border-radius: 4px;
+    font-size: 8px; font-weight: 800; letter-spacing: .5px;
+    color: #0b0d14;
+    background: #ffcf3a;
+    box-shadow: 0 1px 4px rgba(0,0,0,.4);
+  }
+  .qslot.playing .pbadge { display: block; }
+  .qslot.playing::after {
+    content: ''; position: absolute; inset: -5px; z-index: 0;
+    border-radius: 13px; pointer-events: none;
+    border: 2px solid var(--rc, #ffcf3a);
+    box-shadow: 0 0 14px var(--rc, #ffcf3a);
+    opacity: .85;
+    animation: playPulse 2s ease-in-out infinite alternate;
+  }
+  @keyframes playPulse {
+    from { opacity: .35; box-shadow: 0 0 6px var(--rc, #ffcf3a); }
+    to   { opacity: .95; box-shadow: 0 0 18px var(--rc, #ffcf3a); }
+  }
+  .qslot .qt {
+    margin-top: 4px; min-height: 2.5em;
+    font-size: 13px; font-weight: 600; line-height: 1.25;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden; word-break: break-word;
+  }
+  .qslot .qd {
+    margin-top: 2px; font-size: 10px; font-weight: 700; letter-spacing: .3px;
+    color: var(--dim);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .qslot.diff .qd { color: var(--dc); }
+  /* 队列超出 4 首时的 +N 小栏：亚克力模糊 */
+  .qmore {
+    flex: 0 0 30px;
+    display: flex; align-items: center; justify-content: center;
+    border: 3px solid rgba(255,255,255,.28);
+    border-radius: 10px;
+    background: rgba(255,255,255,.08);
+    backdrop-filter: blur(10px) saturate(1.2);
+    font-size: 15px; font-weight: 800; letter-spacing: .2px;
+    color: #dfe6ff;
+    animation: cardRise .65s cubic-bezier(.2,.8,.2,1);
+  }
+  @keyframes cardRise {
+    from { opacity: 0; transform: translateY(14px) scale(.96); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* 选择状态：左侧缩小队列，右侧候选列表 */
+  .qselect { display: flex; gap: 12px; align-items: flex-start; }
+  .qselect.hidden { display: none; }
+  .qminis { flex: 0 0 54px; height: 166px; display: flex; flex-direction: column; gap: 8px; }
+  .qmini {
+    width: 54px; height: 50px; flex: 0 0 50px;
+    border: 3px solid rgba(255,255,255,.42);
+    border-radius: 7px; overflow: hidden;
+    background: rgba(255,255,255,.06);
+    animation: cardRise .55s ease;
+    position: relative;
+  }
+  .qmini img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .qmini.ultima {
+    background: linear-gradient(160deg, #1b1d22, #0b0c0f 70%);
+  }
+  .qmini.qmore-mini {
+    display: flex; align-items: center; justify-content: center;
+    border: 3px solid rgba(255,255,255,.28);
+    border-radius: 10px;
+    background: rgba(255,255,255,.08);
+    backdrop-filter: blur(10px) saturate(1.2);
+    color: #dfe6ff;
+    font-size: 14px; font-weight: 800; letter-spacing: .2px;
+  }
+  .qchoices {
+    flex: 1 1 auto; min-width: 0;
+    position: relative; overflow: hidden;
+  }
+  .qchoices.scroll { height: 166px; max-height: 166px; }
+  .qchoices-track {
+    display: flex; flex-direction: column; gap: 5px;
+    transition: opacity .32s ease;
+    will-change: transform, opacity;
+  }
+  .choice {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 7px; border-radius: 8px;
+    border: 1px solid rgba(255,255,255,.10);
+    background: rgba(255,255,255,.03);
+    animation: rowIn .3s ease;
+  }
+  .choice .num {
+    flex: 0 0 18px; text-align: center;
+    font-size: 14px; font-weight: 800; color: var(--jc);
+  }
+  .choice img {
+    width: 40px; height: 40px; flex: 0 0 40px;
+    border-radius: 5px; object-fit: cover; background: rgba(255,255,255,.06);
+  }
+  .choice.ultima {
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.05), transparent 22%),
+      linear-gradient(160deg, rgba(27,29,34,.85) 0%, rgba(11,12,15,.85) 70%);
+  }
+  .choice .cinfo { min-width: 0; flex: 1 1 auto; }
+  .choice .ctitle {
+    font-size: 12px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .choice .cartist {
+    font-size: 10px; color: var(--dim);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .choice .cdiff { font-size: 9px; margin-top: 1px; letter-spacing: .3px; color: var(--dim); }
+  .citem {
+    display: flex; align-items: baseline; gap: 7px;
+    padding: 4px 0; border-top: 1px solid rgba(255,255,255,.06);
+    animation: rowIn .28s cubic-bezier(.2,.8,.2,1);
+  }
+  .citem.first { border-top: 0; }
+  @keyframes rowIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .citem .cu {
+    font-size: 12px; color: #7cc0ff; font-weight: 600; flex: 0 0 auto;
+    max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .citem .ct {
+    font-size: 12px; color: #e6e9f2; min-width: 0; flex: 1 1 auto;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  #qmsg {
+    margin-top: 5px; padding-top: 5px; font-size: 11px; color: #ffcf3a;
+    border-top: 1px solid rgba(255,255,255,.06);
+    animation: rowIn .24s ease;
+  }
+  #qmsg.err { color: #ff7a7a; }
+  #qmsg.ask { color: #9fc3ff; }
+  #qmsg.hidden { display: none; }
+</style>
+</head>
+<body>
+  <div id="stack">
+  <div id="panel">
+    <div class="diffbar" id="diffbar"></div>
+
+    <div class="song">
+      <img class="jacket" id="jacket" alt="" style="display:none">
+      <div class="standbyart" id="standbyArt">
+        <div class="eq"><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="slogo">STREAMKIT</div>
+      </div>
+      <div class="songtext">
+        <div class="title" id="title">WAITING FOR SELECT</div>
+        <div class="artist" id="artist">等待选曲</div>
+        <div class="badges">
+          <span class="badge" id="bpm" style="display:none"></span>
+          <span class="badge demo" id="demobadge" style="display:none">DEMO</span>
+        </div>
+        <div class="diffrow" id="diffrow"></div>
+      </div>
+    </div>
+
+    <div class="playonly">
+      <div class="scoreline">
+        <span class="score" id="score">0</span>
+        <span class="combo">COMBO <b id="combo">0</b><span id="maxcombo"></span></span>
+      </div>
+      <div class="judges">
+        <div class="jcell jc"><span class="l">JUSTICE CRITICAL</span><span class="v"><em class="fl late" id="ljc">0</em><span class="n" id="jc">0</span><em class="fl fast" id="fjc">0</em></span></div>
+        <div class="jcell ju"><span class="l">JUSTICE</span><span class="v"><em class="fl late" id="lju">0</em><span class="n" id="ju">0</span><em class="fl fast" id="fju">0</em></span></div>
+        <div class="jcell at"><span class="l">ATTACK</span><span class="v"><em class="fl late" id="lat">0</em><span class="n" id="at">0</span><em class="fl fast" id="fat">0</em></span></div>
+        <div class="jcell mi"><span class="l">MISS</span><span class="n" id="mi">0</span></div>
+      </div>
+      <div class="flrow hidden" id="flrow">
+        <span class="flchip late">LATE <b id="laten">0</b></span>
+        <span class="flchip fast">EARLY <b id="fastn">0</b></span>
+      </div>
+      <div class="feedrow">
+        <span class="fcstat hidden" id="fcstat">FC</span>
+        <div class="feed" id="feed"></div>
+      </div>
+    </div>
+
+    <div id="status">disconnected</div>
+  </div>
+
+  <div id="srbar">
+    <button id="srToggle" class="srtoggle" type="button">
+      <span class="lbl">点歌板</span><b>OFF</b><span class="sw"><i></i></span>
+    </button>
+  </div>
+
+  <div id="queuePanel" class="sidecard hidden">
+    <div id="qnormal" class="qgrid"></div>
+    <div id="qselect" class="qselect hidden">
+      <div id="qminis" class="qminis"></div>
+      <div id="qchoices" class="qchoices"></div>
+    </div>
+    <div id="qmsg" class="hidden"></div>
+  </div>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var panel = $('panel'), feedEl = $('feed');
+  var srToggleEl = $('srToggle');
+  var queuePanel = $('queuePanel'), qnormalEl = $('qnormal'),
+      qselectEl = $('qselect'), qminisEl = $('qminis'), qchoicesEl = $('qchoices'),
+      qmsgEl = $('qmsg');
+  var qEls = {}, qSlots = [], qMoreEl = null;
+  var lastSelectSig = '';
+  var choiceScrollTimer = 0;
+  var choiceScrollRAF = 0;
+  var lastQNotice = '';
+  var API = (location.protocol === 'file:') ? 'http://127.0.0.1:8770' : '';
+
+  var DIFF_NAMES = ['BASIC', 'ADVANCED', 'EXPERT', 'MASTER', 'ULTIMA', "WORLD'S END"];
+  var DIFF_COLORS = ['#5aff9a', '#ffb03a', '#ff5a3c', '#b45aff', '#ff3b3b', '#ff5ad8'];
+  // 点歌卡片/候选区配色：ULTIMA 与上方难度框一致（棕红）
+  var QDIFF_COLORS = DIFF_COLORS.slice();
+  QDIFF_COLORS[4] = '#e8eaf0';
+  var SHORT = { JUSTICE_CRITICAL: 'JC', JUSTICE: 'JU', ATTACK: 'AT', MISS: 'MI' };
+
+  var lastEvent = 0, lastSongId = -1, lastSongChange = 0, lastShown = false;
+
+  // 封面加载失败时带时间戳重试一次（绕过浏览器对旧 404 的缓存）
+  (function () {
+    var jk = document.getElementById('jacket');
+    if (!jk) return;
+    jk.addEventListener('error', function () {
+      var mid = jk.getAttribute('data-mid');
+      if (!mid || jk.getAttribute('data-retry')) return;
+      jk.setAttribute('data-retry', '1');
+      jk.src = API + '/jacket/' + mid + '.png?r=' + Date.now();
+    });
+  })();
+
+  function pad(n) {
+    var v = Number(n) || 0;
+    return v < 10 ? '0' + v : String(v);
+  }
+
+  // 把 #rrggbb 按比例压暗
+  function shade(hex, f) {
+    var n = parseInt(hex.slice(1), 16);
+    var r = Math.round(((n >> 16) & 255) * f);
+    var g = Math.round(((n >> 8) & 255) * f);
+    var b = Math.round((n & 255) * f);
+    return 'rgb(' + r + ',' + g + ',' + b + ')';
+  }
+
+  // —— 同步滚动调度 ——
+  // 规则：起始停顿 1s → 各自滚动（先到的停在终点等待）→ 结束停顿 1s
+  //       → 淡出 → 复位 → 淡入 → 新一轮
+  var MARQ_SPEED = 40;      // px/s
+  var MARQ_PAUSE = 1000;    // 首尾停顿
+  var MARQ_FADE = 320;      // 淡出/淡入时长
+  var marqTimer = null;
+  var marqItems = [];
+  var marqSigLast = '';
+
+  function marqStop() {
+    if (marqTimer) { clearTimeout(marqTimer); marqTimer = null; }
+    for (var i = 0; i < marqItems.length; ++i) {
+      var m = marqItems[i];
+      m.inner.style.transition = 'none';
+      m.inner.style.transform = 'translateX(0)';
+      m.el.style.opacity = '';
+    }
+    marqItems = [];
+  }
+
+  // 为单个元素建立滚动描述；不需要滚动的直接返回 null，完全不管它
+  function marqBuild(el, text) {
+    if (!el) return null;
+    var key = text + '|' + el.clientWidth;
+    if (el.getAttribute('data-marq') !== key) {
+      el.setAttribute('data-marq', key);
+      // 先用纯文本测量
+      el.textContent = text;
+      el.style.opacity = '1';
+      var over = el.scrollWidth - el.clientWidth;
+      if (over > 4) {
+        // 只有真正溢出时才建立滚动结构
+        el.textContent = '';
+        var sp = document.createElement('span');
+        sp.className = 'marq-inner';
+        sp.textContent = text;
+        el.appendChild(sp);
+      }
+    }
+    var inner = el.querySelector('.marq-inner');
+    if (!inner) return null;              // 放得下 → 不参与滚动调度
+    var dist = Math.max(0, inner.scrollWidth - el.clientWidth);
+    if (dist <= 4) return null;
+    var dur = Math.max(1200, Math.round(dist / MARQ_SPEED * 1000));
+    return { el: el, inner: inner, dist: dist, dur: dur };
+  }
+
+  function marqStart(items) {
+    marqStop();
+    var moving = [];
+    for (var i = 0; i < items.length; ++i) {
+      var m = items[i];
+      if (!m) continue;
+      if (m.dist > 4) { moving.push(m); }
+      else { m.inner.style.transition = 'none'; m.inner.style.transform = 'translateX(0)'; }
+    }
+    if (!moving.length) return;
+    marqItems = moving;
+
+    // 统一周期取最长者，短的那个滚完后原地等待
+    var maxDur = 0;
+    for (var k = 0; k < moving.length; ++k) maxDur = Math.max(maxDur, moving[k].dur);
+
+    function round() {
+      // 1) 复位 + 停顿 1s（可见）
+      for (var i = 0; i < moving.length; ++i) {
+        var m = moving[i];
+        m.inner.style.transition = 'none';
+        m.inner.style.transform = 'translateX(0)';
+        m.el.style.opacity = '1';
+      }
+      marqTimer = setTimeout(function () {
+        // 2) 滚动：各自按自身时长
+        for (var i = 0; i < moving.length; ++i) {
+          var m = moving[i];
+          m.inner.style.transition = 'transform ' + m.dur + 'ms linear';
+          m.inner.style.transform = 'translateX(-' + m.dist + 'px)';
+        }
+        marqTimer = setTimeout(function () {
+          // 3) 结束停顿 1s
+          marqTimer = setTimeout(function () {
+            // 4) 淡出 → 复位 → 淡入 → 下一轮
+            for (var i = 0; i < moving.length; ++i) moving[i].el.style.opacity = '0';
+            marqTimer = setTimeout(round, MARQ_FADE);
+          }, MARQ_PAUSE);
+        }, maxDur);
+      }, MARQ_PAUSE);
+    }
+    round();
+  }
+
+  function setMarquee(el, text) {
+    // 兼容旧调用：单元素独立滚动
+    marqStart([marqBuild(el, text)]);
+  }
+
+  function pushEvent(d) {
+    var short = SHORT[d.judge] || '?';
+    var chip = document.createElement('span');
+    chip.className = 'chip ' + short;
+    var dl = (d.delta_ms && d.delta_ms !== 0)
+      ? ' <span class="dl">' + (d.delta_ms > 0 ? '+' : '') + d.delta_ms + 'ms</span>' : '';
+    chip.innerHTML = short + dl;
+    feedEl.appendChild(chip);
+    while (feedEl.children.length > 10) feedEl.removeChild(feedEl.firstChild);
+    lastEvent = Date.now();
+  }
+
+  var swapLocked = false;
+  var standbyMode = false;
+
+  function setStandby() {
+    marqStop();
+    marqSigLast = '';
+    lastSongId = -1;
+    marqStart([
+      marqBuild($('title'), 'WAITING FOR SELECT'),
+      marqBuild($('artist'), '等待选曲')
+    ]);
+    var jk = $('jacket');
+    jk.style.display = 'none';
+    jk.removeAttribute('src');
+    jk.removeAttribute('data-mid');
+    $('standbyArt').style.display = '';
+    var row = $('diffrow');
+    row.innerHTML = '<div class="standby-diffs"><b>--</b><b>--</b><b>--</b><b>--</b></div>';
+    row.__segs = null;
+    $('diffbar').style.background = 'rgba(255,255,255,.10)';
+    panel.style.borderColor = 'rgba(255,255,255,0.10)';
+    panel.classList.add('standby');
+    panel.classList.remove('preview');
+  }
+
+  function applySongInfo(song, g) {
+    panel.classList.remove('standby');
+    $('standbyArt').style.display = 'none';
+    // 曲名与曲师同步起滚；仅在文本/宽度变化时重建，避免每帧重启
+    var titleText = (song.known && song.title) ? song.title : ('Music #' + g.music_id);
+    var artistText = (song.known && song.artist) ? song.artist : '';
+    var marqSig = titleText + '\u0001' + artistText + '\u0001' + $('title').clientWidth;
+    if (marqSig !== marqSigLast) {
+      marqSigLast = marqSig;
+      marqStop();
+      marqStart([
+        marqBuild($('title'), titleText),
+        marqBuild($('artist'), artistText)
+      ]);
+    }
+    // BPM 仅用于内部律动节奏，不在界面上显示
+    var bp = $('bpm');
+    bp.style.display = 'none';
+
+    var jk = $('jacket');
+    if (song.known && g.music_id > 0) {
+      var want = API + '/jacket/' + g.music_id + '.png';
+      if (jk.getAttribute('data-mid') !== String(g.music_id)) {
+        jk.setAttribute('data-mid', String(g.music_id));
+        jk.removeAttribute('data-retry');
+        jk.setAttribute('src', want);
+      }
+      jk.style.display = '';
+    } else {
+      jk.style.display = 'none';
+      jk.removeAttribute('src');
+      jk.removeAttribute('data-mid');
+    }
+
+    var consts = (song.known && song.consts) ? song.consts : [];
+    var row = $('diffrow');
+    if (!row.__segs) {
+      row.innerHTML = '';
+      var stack = document.createElement('div');
+      stack.className = 'diffstack';
+      var segs = [];
+      for (var k = 0; k < 6; ++k) {
+        var seg0 = document.createElement('div');
+        seg0.className = 'diffseg';
+        seg0.setAttribute('data-d', k);
+        seg0.innerHTML = '<span class="lv">' + DIFF_NAMES[k] + '</span><span class="cv"></span>';
+        if (k < 2) stack.appendChild(seg0); else row.appendChild(seg0);
+        segs.push(seg0);
+      }
+      row.insertBefore(stack, row.firstChild);
+      row.__segs = segs;
+    }
+    var segs = row.__segs;
+    var dIdx = Number(g.difficulty);
+    var curValid = (dIdx >= 0 && dIdx <= 5);
+    var curColor = null;
+    for (var i = 0; i < 6; ++i) {
+      var seg = segs[i];
+      var cval = (consts.length > i && consts[i] != null) ? String(consts[i]) : '';
+      if (cval.indexOf('.') >= 0) cval = cval.replace(/0+$/, '').replace(/\.$/, '');
+      if (i === 5 && song.we_tag) cval = String(song.we_tag);
+      var missing = !cval;
+      // 定数带 .5 以上时，右上角加一个上标 +
+      var cvEl = seg.querySelector('.cv');
+      if (missing) {
+        cvEl.textContent = '';
+      } else {
+        var fv = parseFloat(cval);
+        var hasPlus = !isNaN(fv) && (fv - Math.floor(fv)) >= 0.5 - 1e-6;
+        cvEl.innerHTML = cval + (hasPlus ? '<sup>+</sup>' : '');
+      }
+
+      var special = (i === 4) ? ' ultima' : (i === 5) ? ' we' : '';
+      var isCur = curValid && i === dIdx;
+      seg.className = 'diffseg' + special + (missing ? ' missing' : '') + (isCur ? ' cur' : '');
+      if (special) {
+        seg.style.color = '';
+        seg.style.background = '';
+      } else if (missing) {
+        seg.style.color = '';
+        seg.style.background = '';
+      } else if (isCur) {
+        // 选中格：纯色平涂（加深一档），不做渐变
+        seg.style.color = DIFF_COLORS[i];
+        seg.style.background = shade(DIFF_COLORS[i], .42);
+      } else {
+        seg.style.color = DIFF_COLORS[i];
+        seg.style.background = DIFF_COLORS[i] + '2E';
+      }
+      if (isCur) curColor = DIFF_COLORS[i];
+    }
+
+    $('diffbar').style.background = curColor || 'transparent';
+    panel.style.borderColor = curColor ? curColor + '80' : 'rgba(255,255,255,0.10)';
+  }
+
+  function showQNotice(n) {
+    var text = n.msg || '';
+    if (!text) {
+      if (n.status === 'added') text = '已加入：' + n.title;
+      else if (n.status === 'duplicate') text = '已在队列：' + n.title;
+      else if (n.status === 'not_found') text = '未找到：' + n.query;
+      else if (n.status === 'full') text = '队列已满：' + n.title;
+      else return;
+    }
+    var err = ['not_found', 'full', 'denied', 'usage', 'no_request', 'diff_missing',
+               'busy', 'timeout'].indexOf(n.status) >= 0;
+    qmsgEl.textContent = text;
+    qmsgEl.className = err ? 'err' : '';
+    clearTimeout(showQNotice.timer);
+    showQNotice.timer = setTimeout(function () { qmsgEl.classList.add('hidden'); }, 4000);
+  }
+
+  var DIFF_SHORT = ['BASIC', 'ADV', 'EXP', 'MAST', 'ULT', 'WE'];
+
+  function newCard() {
+    var card = document.createElement('div');
+    card.className = 'qslot';
+    card.innerHTML = '<div class="art"><img alt="">' +
+                     '<span class="pbadge">PLAYING</span></div>' +
+                     '<div class="qt"></div><div class="qd"></div>';
+    var im = card.querySelector('img');
+    im.addEventListener('error', function () { this.style.display = 'none'; });
+    return card;
+  }
+
+  function renderCard(card, it) {
+    var im = card.querySelector('img');
+    if (im.getAttribute('data-id') !== String(it.song_id)) {
+      im.style.display = '';
+      im.setAttribute('data-id', it.song_id);
+      im.src = API + '/jacket/' + it.song_id + '.png';
+    }
+    card.querySelector('.qt').textContent = it.title || '';
+    var qd = card.querySelector('.qd');
+    var diff = (typeof it.difficulty === 'number') ? it.difficulty : -1;
+    if (diff >= 0 && diff < DIFF_NAMES.length) {
+      var col = QDIFF_COLORS[diff];
+      var accent = (diff === 4) ? '#ff4a4a' : col;
+      card.classList.add('diff');
+      card.style.borderColor = col;
+      card.style.setProperty('--dc', accent);
+      card.style.setProperty('--rc', accent);
+      qd.textContent = DIFF_NAMES[diff];
+      var cval = (it['const'] !== null && it['const'] !== undefined) ? Number(it['const']) : 0;
+      if (cval > 0) qd.textContent += ' ' + (Math.round(cval * 10) / 10).toString();
+    } else {
+      card.classList.remove('diff');
+      card.style.borderColor = 'rgba(255,255,255,.42)';
+      card.style.setProperty('--dc', '#c6cbe0');
+      card.style.setProperty('--rc', '#ffcf3a');
+      qd.textContent = '';
+    }
+    card.classList.toggle('playing', !!it.playing);
+    card.classList.toggle('ultima', diff === 4);
+    for (var di = 0; di < 6; ++di) card.classList.remove('d' + di);
+    if (diff >= 0 && diff < 6) card.classList.add('d' + diff);
+  }
+
+  function emptySlot() {
+    var d = document.createElement('div');
+    d.className = 'qslot empty';
+    d.innerHTML = '<div class="art"></div><div class="qt"></div><div class="qd"></div>';
+    return d;
+  }
+
+  function renderSlots(items, max) {
+    var seen = {};
+    for (var i = 0; i < 4; ++i) {
+      var el;
+      if (i < items.length) {
+        var it = items[i], key = String(it.id);
+        el = qEls[key];
+        if (!el) {
+          el = newCard();
+          qEls[key] = el;
+        }
+        renderCard(el, it);
+        seen[key] = true;
+      } else {
+        el = qSlots[i];
+        if (!el) {
+          el = emptySlot();
+          qSlots[i] = el;
+        }
+      }
+      if (qnormalEl.children[i] !== el) qnormalEl.insertBefore(el, qnormalEl.children[i] || null);
+    }
+    while (qnormalEl.children.length > 4) {
+      var extra = qnormalEl.children[4];
+      if (extra === qMoreEl) break;
+      qnormalEl.removeChild(extra);
+    }
+    for (var k in qEls) {
+      if (!seen[k]) {
+        if (qEls[k].parentNode) qEls[k].parentNode.removeChild(qEls[k]);
+        delete qEls[k];
+      }
+    }
+    var more = items.length - 4;
+    if (more > 0) {
+      if (!qMoreEl) {
+        qMoreEl = document.createElement('div');
+        qMoreEl.className = 'qmore';
+      }
+      qMoreEl.textContent = '+' + more;
+      if (qnormalEl.lastChild !== qMoreEl) qnormalEl.appendChild(qMoreEl);
+    } else if (qMoreEl && qMoreEl.parentNode) {
+      qMoreEl.parentNode.removeChild(qMoreEl);
+    }
+  }
+
+  function startChoiceScroll(track, total) {
+    cancelAnimationFrame(choiceScrollRAF);
+    clearTimeout(choiceScrollTimer);
+    var viewport = qchoicesEl.clientHeight || 166;
+    var max = track.scrollHeight - viewport;
+    if (max <= 0) return;
+    var offset = 0;
+    var last = 0;
+    var speed = 18;          // px/s，匀速
+    function frame(now) {
+      if (!last) last = now;
+      var dt = Math.min(64, now - last) / 1000;
+      last = now;
+      offset += speed * dt;
+      if (offset >= max) {
+        track.style.transform = 'translate3d(0,' + (-max) + 'px,0)';
+        track.style.opacity = '0';
+        choiceScrollTimer = setTimeout(function () {
+          track.style.transition = 'none';
+          track.style.transform = 'translate3d(0,0,0)';
+          offset = 0;
+          requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+              track.style.transition = '';
+              track.style.opacity = '1';
+              last = 0;
+              choiceScrollTimer = setTimeout(function () {
+                last = 0;
+                choiceScrollRAF = requestAnimationFrame(frame);
+              }, 1600);
+            });
+          });
+        }, 320);
+        return;
+      }
+      track.style.transform = 'translate3d(0,' + (-offset) + 'px,0)';
+      choiceScrollRAF = requestAnimationFrame(frame);
+    }
+    // 先停留一下，让观众看完前 3 条再开始匀速滚动
+    choiceScrollTimer = setTimeout(function () {
+      last = 0;
+      choiceScrollRAF = requestAnimationFrame(frame);
+    }, 2000);
+  }
+
+  function renderSelection(items, p) {
+    clearTimeout(choiceScrollTimer);
+    cancelAnimationFrame(choiceScrollRAF);
+    qminisEl.innerHTML = '';
+    var n = items.length > 3 ? 2 : items.length;
+    for (var i = 0; i < n; ++i) {
+      var it = items[i];
+      var m = document.createElement('div');
+      m.className = 'qmini';
+      var diff = (typeof it.difficulty === 'number') ? it.difficulty : -1;
+      m.style.borderColor = diff >= 0 ? QDIFF_COLORS[diff] : 'rgba(255,255,255,.42)';
+      m.classList.toggle('ultima', diff === 4);
+      if (diff >= 0 && diff < 6) m.classList.add('d' + diff);
+      var mi = document.createElement('img');
+      mi.src = API + '/jacket/' + it.song_id + '.png';
+      mi.alt = '';
+      m.appendChild(mi);
+      qminisEl.appendChild(m);
+    }
+    if (items.length > 3) {
+      var more = document.createElement('div');
+      more.className = 'qmini qmore-mini';
+      more.textContent = '+' + (items.length - 2);
+      qminisEl.appendChild(more);
+    }
+
+    qchoicesEl.innerHTML = '';
+    qchoicesEl.classList.remove('scroll');
+    qchoicesEl.style.height = '';
+    var track = document.createElement('div');
+    track.className = 'qchoices-track';
+    var cs = p.candidates || [];
+    for (var i = 0; i < cs.length; ++i) {
+      var c = cs[i];
+      var row = document.createElement('div');
+      row.className = 'choice';
+      row.classList.toggle('ultima', p.difficulty === 4);
+      if (p.difficulty >= 0 && p.difficulty < 6) row.classList.add('d' + p.difficulty);
+      var num = document.createElement('div');
+      num.className = 'num';
+      num.textContent = (i + 1);
+      var img = document.createElement('img');
+      img.src = API + '/jacket/' + c.song_id + '.png';
+      img.alt = '';
+      var info = document.createElement('div');
+      info.className = 'cinfo';
+      var t = document.createElement('div');
+      t.className = 'ctitle';
+      t.textContent = c.title || '';
+      var a = document.createElement('div');
+      a.className = 'cartist';
+      a.textContent = c.artist || '';
+      var d = document.createElement('div');
+      d.className = 'cdiff';
+      if (p.difficulty >= 0 && p.difficulty < DIFF_NAMES.length) {
+        d.textContent = DIFF_NAMES[p.difficulty];
+        d.style.color = (p.difficulty === 4) ? '#ff4a4a' : QDIFF_COLORS[p.difficulty];
+      } else {
+        var names = [];
+        var cs2 = c.consts || [];
+        for (var j = 0; j < 6; ++j) {
+          if ((cs2[j] != null && cs2[j] > 0) || (j === 5 && c.we_tag)) names.push(DIFF_SHORT[j]);
+        }
+        d.textContent = names.length ? names.join(' · ') : '未指定难度';
+      }
+      info.appendChild(t);
+      info.appendChild(a);
+      info.appendChild(d);
+      row.appendChild(num);
+      row.appendChild(img);
+      row.appendChild(info);
+      track.appendChild(row);
+    }
+    qchoicesEl.appendChild(track);
+    if (cs.length > 3) {
+      qchoicesEl.classList.add('scroll');
+      qchoicesEl.style.height = '166px';
+      startChoiceScroll(track, cs.length);
+    }
+  }
+
+  function applyQueue(r, p) {
+    if (!r || !r.enabled) {
+      queuePanel.classList.add('hidden');
+      return;
+    }
+    queuePanel.classList.remove('hidden');
+    var all = r.items || [];
+
+    if (p && p.active) {
+      qnormalEl.classList.add('hidden');
+      qselectEl.classList.remove('hidden');
+      var sig = String(p.t) + '|';
+      var cs0 = p.candidates || [];
+      for (var si = 0; si < cs0.length; ++si) sig += cs0[si].song_id + ',';
+      sig += '|';
+      for (var qi = 0; qi < all.length; ++qi) sig += all[qi].id + ',';
+      if (sig !== lastSelectSig) {
+        lastSelectSig = sig;
+        renderSelection(all, p);
+      }
+      qmsgEl.classList.remove('err');
+      qmsgEl.classList.add('ask');
+      qmsgEl.classList.remove('hidden');
+      qmsgEl.textContent = '找到 ' + (p.candidates ? p.candidates.length : 0) +
+                           ' 个结果，请回复 1-' + (p.candidates ? p.candidates.length : 0);
+      return;
+    }
+
+    lastSelectSig = '';
+    clearTimeout(choiceScrollTimer);
+    cancelAnimationFrame(choiceScrollRAF);
+
+    qselectEl.classList.add('hidden');
+    qnormalEl.classList.remove('hidden');
+    if (qmsgEl.classList.contains('ask')) {
+      qmsgEl.classList.remove('ask');
+      qmsgEl.classList.add('hidden');
+    }
+    renderSlots(all, r.max);
+
+    if (r.last && r.last.status && r.last.t) {
+      var key = r.last.t + '|' + r.last.status + '|' + (r.last.query || '');
+      if (key !== lastQNotice) {
+        lastQNotice = key;
+        showQNotice(r.last);
+      }
+    }
+  }
+
+  function applyState(s) {
+    if (!s || !s.game) return;
+    var g = s.game, song = s.song || {};
+    applyQueue(s.request, s.pending);
+    var srOn = !!(s.request && s.request.enabled);
+    srToggleEl.classList.toggle('on', srOn);
+    srToggleEl.querySelector('b').textContent = srOn ? 'ON' : 'OFF';
+    var inGame = !!g.in_game || !!s.demo;
+    var hasSong = !!song.known && g.music_id > 0;
+
+    $('demobadge').style.display = s.demo ? '' : 'none';
+
+    if (!inGame && !hasSong) {
+      if (!standbyMode) {
+        standbyMode = true;
+        setStandby();
+      }
+    } else {
+      standbyMode = false;
+      panel.classList.toggle('preview', !inGame);
+      // 换歌：先淡出，170ms 后换内容再淡入
+      if (song.known && g.music_id !== lastSongId) {
+        lastSongId = g.music_id;
+        lastSongChange = Date.now();
+        feedEl.innerHTML = '';
+        lastEvent = 0;
+        swapLocked = true;
+        panel.classList.add('song-fade');
+        (function (ss, gg) {
+          setTimeout(function () {
+            if (standbyMode) return;
+            applySongInfo(ss, gg);
+            swapLocked = false;
+            panel.classList.remove('song-fade');
+            panel.classList.add('song-in');
+            setTimeout(function () { panel.classList.remove('song-in'); }, 460);
+          }, 170);
+        })(song, g);
+      }
+      if (!swapLocked) applySongInfo(song, g);
+    }
+
+    $('score').textContent = pad(g.score);
+    var cNow = g.combo | 0, mcNow = g.max_combo | 0;
+    $('combo').textContent = pad(cNow);
+    // 追平最大连击 → 数字放大强调
+    $('combo').classList.toggle('full', mcNow > 0 && cNow >= mcNow);
+    var mxe = $('maxcombo');
+    mxe.textContent = mcNow > 0 ? ' / ' + pad(mcNow) : '';
+    // 当前连击已达最大值 → 收起分母；否则显示 combo / max
+    mxe.classList.toggle('off', !(mcNow > 0 && cNow < mcNow));
+    $('jc').textContent = pad(g.justice_crit);
+    $('ju').textContent = pad(g.justice);
+    $('at').textContent = pad(g.attack);
+    $('mi').textContent = pad(g.miss);
+
+    // EARLY / LATE：总数徽章 + 各判定数字两侧小字
+    var nFast = g.fast | 0, nLate = g.late | 0;
+    var flRow = $('flrow');
+    if (nFast + nLate > 0) {
+      flRow.classList.remove('hidden');
+      $('fastn').textContent = nFast;
+      $('laten').textContent = nLate;
+      var pairs = [['fjc', 'ljc', g.fast_jc, g.late_jc],
+                   ['fju', 'lju', (g.fast | 0) - (g.fast_jc | 0) - (g.fast_attack | 0), (g.late | 0) - (g.late_jc | 0) - (g.late_attack | 0)],
+                   ['fat', 'lat', g.fast_attack, g.late_attack]];
+      for (var pi = 0; pi < pairs.length; ++pi) {
+        var fp = pairs[pi];
+        var fe = $(fp[0]), le = $(fp[1]);
+        var fv = Math.max(0, fp[2] | 0), lv = Math.max(0, fp[3] | 0);
+        fe.textContent = fv; le.textContent = lv;
+        fe.className = 'fl fast' + (fv ? '' : ' zero');
+        le.className = 'fl late' + (lv ? '' : ' zero');
+      }
+    } else {
+      flRow.classList.add('hidden');
+    }
+
+    // 固定达成状态（逐级降档）：
+    //   全是 JC → JC
+    //   出现非 JC（JUSTICE）→ 降为 AJ
+    //   出现非 JC/J（ATTACK）→ 降为 FC
+    //   出现 MISS → 变灰，不再评级
+    var fc = $('fcstat');
+    var nJC = g.justice_crit | 0, nJ = g.justice | 0;
+    var nAT = g.attack | 0, nMI = g.miss | 0;
+    var total = nJC + nJ + nAT + nMI;
+    var tag = '', cls = 'fcstat';
+    if (total > 0) {
+      if (nMI > 0) { tag = '/'; cls += ' dead'; }
+      else if (nAT > 0) { tag = 'FC'; cls += ' fc'; }
+      else if (nJ > 0) { tag = 'AJ'; cls += ' aj'; }
+      else { tag = 'JC'; cls += ' jc'; }
+    }
+    if (tag) { fc.textContent = tag; fc.className = cls; }
+    else { fc.className = 'fcstat hidden'; }
+
+    // 判定流：切歌或计数清零时一起清空
+    if (total === 0) feedEl.innerHTML = '';
+
+    panel.classList.toggle('state-idle', !inGame);
+    panel.classList.toggle('state-play', inGame);
+    panel.classList.remove('hidden');
+
+    $('status').textContent = 'connected · ' + (s.plugin ? s.plugin.profile : '') +
+      (s.plugin && !s.plugin.signatures ? ' · SIGS MISSING' : '');
+  }
+
+  function connect() {
+    var es = new EventSource(API + '/events');
+    es.onmessage = function (e) {
+      try {
+        var d = JSON.parse(e.data);
+        if (d.type === 'event') pushEvent(d);
+        else applyState(d);
+      } catch (err) { /* ignore */ }
+    };
+    es.onerror = function () {
+      es.close();
+      $('status').textContent = 'SSE lost · retrying…';
+      setTimeout(connect, 2000);
+    };
+  }
+
+  srToggleEl.addEventListener('click', function () {
+    var enable = !srToggleEl.classList.contains('on');
+    fetch('/songrequest/' + (enable ? 'enable' : 'disable'), { method: 'POST' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { if (d && d.ok) pollState(); })
+      .catch(function () {});
+  });
+
+  // 首屏先显示待机牌，状态到达后按游玩/空闲切换
+  standbyMode = true;
+  setStandby();
+
+  if (location.search.indexOf('demo=1') >= 0) {
+    var demoTitles = [
+      '最終鬼畜妹フランドール・S (原口沙輔は鬼畜なのか？remix)',
+      'Grievous Lady -nothing is but what is not- (Extended Mix)',
+      'HECATONCHEIR [CHUNITHM MASTER 15.4] / kors k vs. USAO'
+    ];
+    var demoArtists = [
+      'ビートまりお × 原口沙輔 feat. 上海アリス幻樂団',
+      'Team Grimoire vs Laur (Laur Arrange) / HARDCORE TANO*C',
+      'kors k / USAO - beatmania IIDX 20th Anniversary'
+    ];
+    var DEMO_JACKET = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300">' +
+      '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">' +
+      '<stop offset="0" stop-color="#3b2a6e"/><stop offset="1" stop-color="#8a4ad8"/>' +
+      '</linearGradient></defs><rect width="300" height="300" fill="url(#g)"/>' +
+      '<text x="150" y="185" font-size="110" text-anchor="middle" fill="#ffffff" ' +
+      'opacity="0.75" font-family="sans-serif">&#9835;</text></svg>');
+    var di = 0, djc = 0, dju = 0, dat = 0, dmi = 0, dscore = 0, dcombo = 0;
+    setInterval(function () {
+      var r = Math.random();
+      var ev;
+      if (r < 0.08) { ev = 'MISS'; dmi++; dcombo = 0; }
+      else if (r < 0.2) { ev = 'ATTACK'; dat++; dcombo = 0; }
+      else if (r < 0.5) { ev = 'JUSTICE_CRITICAL'; djc++; dcombo++; }
+      else { ev = 'JUSTICE'; dju++; dcombo++; }
+      dscore = Math.min(dscore + 1010, 1009000);
+      pushEvent({ judge: ev, delta_ms: Math.round((r * 24) - 12) });
+      applyState({
+        demo: true,
+        game: { in_game: true, music_id: 928, difficulty: 3, score: dscore,
+                combo: dcombo, max_combo: dcombo, justice_crit: djc, justice: dju,
+                attack: dat, miss: dmi },
+        song: { known: true, title: demoTitles[di], artist: demoArtists[di],
+                bpm: 174, difficulty_name: 'MASTER',
+                consts: [3.0, 6.0, 10.5, 13.7, null, null], we_tag: '' },
+        plugin: { profile: 'demo', signatures: true }
+      });
+      if (dscore >= 1009000) { di = (di + 1) % 3; djc = dju = dat = dmi = dscore = dcombo = 0; }
+      $('jacket').src = DEMO_JACKET;
+      panel.classList.remove('hidden');
+    }, 350);
+  } else if (location.search.indexOf('static=1') >= 0) {
+    // 调试：只取一次状态，便于无 SSE 环境截图/排查
+    pollState();
+  } else {
+    try { connect(); } catch (e) { /* EventSource 不可用时靠轮询 */ }
+    pollState();
+    setInterval(function () {
+      if (Date.now() - lastEvent < 5000) return;
+      pollState();
+    }, 1500);
+  }
+
+  function pollState() {
+    fetch(API + '/state', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(applyState)
+      .catch(function () {});
+  }
+})();
+</script>
+</body>
+</html>

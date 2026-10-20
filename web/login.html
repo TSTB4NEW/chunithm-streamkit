@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>B站登录</title>
+<style>
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: #14161d; color: #c6cbe0;
+    font: 13px/1.6 "Microsoft YaHei", sans-serif;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 14px;
+  }
+  #qr { background: #fff; padding: 10px; border-radius: 8px; line-height: 0; }
+  #qr img { display: block; width: 180px; height: 180px; }
+  #st { color: #8a91a8; min-height: 20px; }
+  #st.ok { color: #5aff9a; }
+  #st.err { color: #ff5a5a; }
+  #re {
+    background: none; border: 0; color: #5d6478;
+    font-size: 12px; cursor: pointer; text-decoration: underline;
+  }
+  #re:hover { color: #8a91a8; }
+</style>
+</head>
+<body>
+<div id="qr"></div>
+<div id="st">获取二维码…</div>
+<button id="re">刷新</button>
+
+<script src="qrcode.min.js"></script>
+<script>
+(function () {
+  var box = document.getElementById('qr'),
+      st = document.getElementById('st'),
+      re = document.getElementById('re');
+  var timer = null, key = '';
+
+  function say(t, c) { st.textContent = t; st.className = c || ''; }
+
+  function stop() { if (timer) { clearTimeout(timer); timer = null; } }
+
+  function draw(url) {
+    box.innerHTML = '';
+    if (typeof qrcode === 'undefined') throw new Error('qrcode 库未加载');
+    var q = qrcode(0, 'M');
+    q.addData(url);
+    q.make();
+    box.innerHTML = q.createImgTag(5, 6);
+  }
+
+  function poll() {
+    if (!key) return;
+    fetch('/bili/qr/poll?key=' + encodeURIComponent(key), { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var c = d && d.data ? d.data.code : -1;
+        if (c === 0) {
+          stop();
+          say('登录成功，正在保存 Cookie…', 'ok');
+          setTimeout(function () {
+            fetch('/bili/auth', { cache: 'no-store' })
+              .then(function (r) { return r.json(); })
+              .then(function (a) {
+                if (a && a.logged_in)
+                  say('登录成功，Cookie 已保存' + (a.uid > 0 ? '（uid ' + a.uid + '）' : '') +
+                      '，弹幕连接会自动重连', 'ok');
+                else
+                  say('登录成功，但 Cookie 未保存，请查看插件日志', 'err');
+              })
+              .catch(function () { say('登录成功（Cookie 状态未知）', 'ok'); });
+          }, 600);
+          return;
+        }
+        if (c === 86038) { stop(); say('二维码已过期', 'err'); return; }
+        if (c === 86090) say('已扫码，请确认');
+        timer = setTimeout(poll, 2000);
+      })
+      .catch(function () { timer = setTimeout(poll, 3000); });
+  }
+
+  function start() {
+    stop();
+    box.innerHTML = '';
+    say('获取二维码…');
+    fetch('/bili/qr', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var url = d && d.data ? d.data.url : '';
+        key = d && d.data ? d.data.qrcode_key : '';
+        if (!url) { say('获取失败', 'err'); return; }
+        try {
+          draw(url);
+        } catch (e) {
+          say('二维码渲染失败: ' + e.message, 'err');
+          return;
+        }
+        say('等待扫码');
+        poll();
+      })
+      .catch(function () { say('请求失败（游戏未运行？）', 'err'); });
+  }
+
+  function checkAuth() {
+    fetch('/bili/auth', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d && d.logged_in && d.uid > 0) {
+          stop();
+          box.innerHTML = '';
+          say('已登录（uid ' + d.uid + '）；点「刷新」可换号重新扫码', 'ok');
+          return;
+        }
+        start();
+      })
+      .catch(start);
+  }
+
+  re.addEventListener('click', start);
+  checkAuth();
+})();
+</script>
+</body>
+</html>
