@@ -19,7 +19,7 @@ public:
     Snapshot snap;
     SongDb db;
     Profile profile;
-    std::string version = "1.0.6";
+    std::string version = "0.1.0";
     std::string web_root;
     std::string config_path;
     bool demo = false;
