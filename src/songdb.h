@@ -186,7 +186,8 @@ public:
         }
     }
 
-    // 合并落雪 /api/v0/chunithm/song/list 的分类与版本
+    // 仅用于导入/测试。运行时不要调用：标题、曲师、定数、分类、版本
+    // 一律以本地 music_db.tsv 为准；在线只允许补充别名。
     size_t MergeSongMetaJson(const std::string& json) {
         auto fieldString = [](const std::string& o, const char* key) {
             std::string pat = std::string("\"") + key + "\"";

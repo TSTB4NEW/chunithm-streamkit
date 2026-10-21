@@ -33,7 +33,7 @@ private:
     void ClientLoop(SOCKET s);
     bool ReadRequest(SOCKET s, std::string& out);
     void SendAll(SOCKET s, const char* b, size_t n);
-    void ServeResponse(SOCKET s, const std::string& path);
+    void ServeResponse(SOCKET s, const std::string& path, const std::string& method);
     void ServeJacket(SOCKET s, const std::string& idStr);
     void ServeSse(SOCKET s);
     void RegisterClient(SOCKET s);

@@ -137,10 +137,19 @@ int main() {
     Check(app.BuildRequestsJson().find("\"song_id\":1001") != std::string::npos,
           "typo selects Grievous Lady");
     app.ClearRequests();
+    Check(app.AddSongRequest("frank", 108, "same title") == "select",
+          "web choose enters selection");
+    Check(app.ChoosePendingCandidate(0), "web choose candidate");
+    Check(app.BuildRequestsJson().find("\"title\":\"Same Title\"") != std::string::npos,
+          "web choose adds candidate");
+    app.ClearRequests();
 
     // 运行时开关
+    app.AddDanmaku("viewer", "hello chat");
     app.SetRequestsEnabled(false);
     Check(!app.RequestsEnabled(), "runtime disable");
+    Check(app.BuildChatJson().find("hello chat") != std::string::npos,
+          "chat survives request disable");
     Check(app.AddSongRequest("off", 400, "grievous") == "disabled",
           "request rejected when disabled");
     app.SetRequestsEnabled(true);

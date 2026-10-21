@@ -28,6 +28,7 @@ CHUNITHM的**只读**直播数据插件。
 | **弹幕接收** | 原生 WebSocket + Brotli，收 `DANMU_MSG` |
 | **点歌队列** | 固定 4 个候选位（空位保留）；模糊多结果时左右分栏让观众回数字选择 |
 | **点歌管理** | 观众可 `取消点歌` 撤销自己的；房主可 `删歌` / `清空点歌` |
+| **网页交互** | 单击查看版本/分类/定数，拖动排序，直接删除点歌；候选行点击选择 |
 | **随机点歌** | 可按难度、定数、分类、版本随机；无条件时全范围且不指定难度 |
 | **别名搜索** | 启动时在线拉取落雪别名，每 6 小时刷新；失败回退本地 |
 | **队列持久化** | 队列自动写入 `songrequest.tsv`，下次启动继续加载 |
@@ -36,6 +37,15 @@ CHUNITHM的**只读**直播数据插件。
 ---
 
 ## 安装
+
+**前置条件**：游戏需要已经有可用的 ASI loader（一般玩家使用 `segatools` / `chusanhook` 环境即可）。本发布包**不附带** loader，也不会修改游戏文件；如果游戏没有 loader，`chunithm_streamkit.asi` 不会加载。
+
+首次安装后建议按顺序检查：
+
+1. 游戏正常启动，`bin\chunithm_streamkit\logs\chunithm_streamkit.log` 有启动记录
+2. 浏览器打开 `http://127.0.0.1:8770/setup.html` 查看安装检查
+3. `http://127.0.0.1:8770/health` 返回 `{"ok":true,...}`
+4. 最后配置 OBS 浏览器源
 
 把 `bin` 目录里的内容整个复制到游戏根目录的 `bin` 下：
 
@@ -87,6 +97,8 @@ songrequest.tsv                点歌队列（开启点歌时自动保存/恢复
 | 地址 | 用途 |
 |---|---|
 | `http://127.0.0.1:8770/` | 叠加层页面 |
+| `http://127.0.0.1:8770/setup.html` | 安装检查页（仅本机） |
+| `http://127.0.0.1:8770/diag` | 安装状态 JSON（仅本机） |
 | `http://127.0.0.1:8770/chat.html` | 独立弹幕栏页面 |
 | `http://127.0.0.1:8770/?demo=1` | 演示模式（无需游戏） |
 | `http://127.0.0.1:8770/state` | 当前状态 JSON |
@@ -95,6 +107,34 @@ songrequest.tsv                点歌队列（开启点歌时自动保存/恢复
 | `http://127.0.0.1:8770/login.html` | B站 扫码登录 |
 | `http://127.0.0.1:8770/bili/auth` | 当前登录态 JSON |
 | `http://127.0.0.1:8770/bili/me` | 代问 B站 nav（验证 Cookie） |
+
+---
+
+### 局域网访问
+
+手机/平板操作点歌板：
+
+```ini
+[server]
+host=0.0.0.0
+port=8770
+```
+
+重启游戏后，在同一局域网设备打开：
+
+```
+http://<电脑的局域网IP>:8770/
+```
+
+电脑 IP 用 `ipconfig` 查看。手机/平板打开时会按设备宽度适配；电脑端 OBS 仍保持 570px 布局。Windows 防火墙需要允许 `chusanApp.exe` 或 TCP 8770 的入站访问。
+
+手机端会隐藏游玩判定细节，并在底部常驻最近 5 条弹幕；开启 `[danmaku] allow_send=1` 后可以直接发送。
+
+注意：
+
+- 局域网内任何设备都能操作队列、删除/排序、开关点歌板
+- 登录页、B站 登录态、调试和布局接口只允许本机访问
+- 不要把这个端口映射到公网
 
 ---
 
@@ -129,6 +169,7 @@ ATTACK             6    MISS    241
 | 项 | 说明 |
 |---|---|
 | `poll_ms` | 采样周期，默认 33ms。卡顿时可调到 50 |
+| `host` | 监听地址，默认 `127.0.0.1`；局域网访问改为 `0.0.0.0` |
 | `port` | HTTP 端口，默认 8770 |
 | `web_root` | 相对路径按数据目录解析，一般不用改 |
 | `score.hook` | 分数 hook，默认开启 |
@@ -147,6 +188,7 @@ ATTACK             6    MISS    241
 enabled=1
 room_id=123456   ; 可填短号/UID，插件会自动解析成真实 room_id
 protover=3          ; B站 当前只接受 3（Brotli）
+allow_send=1        ; 允许网页/手机发送弹幕（使用登录 Cookie）
 
 [songrequest]
 enabled=0           ; 0 = 关闭（默认）；要启用改成 1，并同时开启 [danmaku]
@@ -194,7 +236,7 @@ curl -X POST http://127.0.0.1:8770/songrequest/toggle
 ```
 
 返回 `{"ok":true,"enabled":false}`。叠加层卡片上的「点歌板 ON/OFF」按钮
-也可以直接切换；关闭点歌板会同时断开弹幕连接。
+也可以直接切换。点歌板和弹幕现在是两个独立模块：关闭点歌板不会断开弹幕连接，弹幕栏仍可正常接收和发送。
 
 流程：
 
@@ -323,6 +365,9 @@ python tools\import_aliases.py --db <music_db.tsv> --out <music_alias.tsv>
 |---|---|
 | `GET /queue` | 当前队列 JSON |
 | `GET /queue/add?title=曲名&user=测试` | 手动加一条（本地调试，也支持 POST） |
+| `POST /queue/move?id=<请求ID>&to=<序号>` | 调整队列顺序 |
+| `POST /pending/move?from=<序号>&to=<序号>` | 调整候选顺序 |
+| `POST /pending/choose?index=<序号>` | 网页端直接选择候选 |
 | `POST /queue/clear` | 清空队列 |
 | `POST /queue/remove?id=<请求ID>` | 移除单条 |
 
@@ -355,10 +400,16 @@ tests\run_tests.cmd
 
 ---
 
+## 数据来源
+
+- 曲名、曲师、BPM、定数、WE 标签、分类、版本：**只读本地 `music_db.tsv`**
+- 点歌匹配、随机筛选、卡片详情、难度校验：全部使用本地曲库
+- 在线接口只允许拉取落雪**别名**，且别名只参与搜索，不覆盖任何歌曲信息
+- 在线别名失败时回退本地 `music_alias.tsv`，不影响点歌
+
 ## 曲库
 
 `music_db.tsv` 为制表符分隔，列顺序：
-
 ```
 id	曲名	曲师	BPM	BASIC	ADVANCED	EXPERT	MASTER	ULTIMA	WORLD'S END	WE标签	分类	版本
 ```
@@ -371,6 +422,14 @@ id	曲名	曲师	BPM	BASIC	ADVANCED	EXPERT	MASTER	ULTIMA	WORLD'S END	WE标签	�
 ---
 
 ## 更新日志
+
+### 1.0.5
+
+- **新增** 单击点歌卡片展开显示版本、分类、难度、定数
+- **新增** 网页端拖动点歌卡片排序
+- **新增** 网页端直接删除点歌卡片
+- **新增** 候选选择状态支持拖动排序，点击候选行直接选择
+- **优化** 卡片展开/收起与拖动排序动画、候选点击选择
 
 ### 1.0.4
 

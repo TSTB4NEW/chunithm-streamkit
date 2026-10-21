@@ -144,7 +144,7 @@ static void DemoThread() {
 static void WorkerThread() {
     BootTrace("worker start");
     App& app = App::Get();
-    app.version = "1.0.4";
+    app.version = "1.0.5";
     std::string dllDir = DllDir();
     std::string dataDir = DataDirOf(dllDir);   // <bin>\chunithm_streamkit
     BootTrace(("dllDir=" + dllDir).c_str());
@@ -209,7 +209,8 @@ static void WorkerThread() {
         std::thread([aliasApp] {
             for (;;) {
                 std::string body;
-                if (bili::HttpGetText(L"maimai.lxns.net",
+                // 在线接口只允许补充别名；标题、曲师、定数、分类、版本一律以本地 music_db.tsv 为准
+        if (bili::HttpGetText(L"maimai.lxns.net",
                                       L"/api/v0/chunithm/alias/list", body)) {
                     size_t added = aliasApp->db.MergeAliasesJson(body);
                     L().Info("online aliases merged: +%zu, total %zu", added,
@@ -350,6 +351,7 @@ static void WorkerThread() {
                      ownerCfg ? "config" : "login");
 
         bool dmuOn = atoi(ini.Get("danmaku", "enabled", "0").c_str()) != 0;
+        bili::SetSendEnabled(atoi(ini.Get("danmaku", "allow_send", "0").c_str()) != 0);
         unsigned rid = (unsigned)atoi(ini.Get("danmaku", "room_id", "").c_str());
         if (dmuOn && rid == 0) {
             L().Info("danmaku: enabled but room_id empty, skipped");
@@ -448,19 +450,8 @@ static void WorkerThread() {
                 }
             };
             L().Info("danmaku: room %u protover=%d connecting", rid, bc.protover);
-            // 弹幕连接跟随点歌板开关：点歌关闭时不连/断开，开启时自动重连
-            std::thread([bc, dmCb] {
-                for (;;) {
-                    bool want = App::Get().RequestsEnabled();
-                    if (want && !bili::Running()) {
-                        bili::Start(bc, dmCb);
-                    } else if (!want && bili::Running()) {
-                        bili::Stop();
-                        L().Info("danmaku: stopped (songrequest disabled)");
-                    }
-                    Sleep(400);
-                }
-            }).detach();
+            // 弹幕连接与点歌板解耦：只由 [danmaku] enabled 控制
+            bili::Start(bc, dmCb);
         }
         if (reqOn && !dmuOn)
             L().Info("songrequest: enabled but danmaku disabled, no requests will arrive");

@@ -767,6 +767,120 @@ inline bool HttpGetText(const wchar_t* host, const wchar_t* path, std::string& o
     return ok;
 }
 
+// 发送直播弹幕（需要登录 Cookie 中的 bili_jct）
+inline std::atomic<bool>& SendEnabled() {
+    static std::atomic<bool> v{false};
+    return v;
+}
+inline void SetSendEnabled(bool on) { SendEnabled().store(on); }
+
+inline unsigned CurrentRoomId() { return detail::S().roomId; }
+
+inline std::string UrlEncode(const std::string& s) {
+    static const char* hex = "0123456789ABCDEF";
+    std::string out;
+    out.reserve(s.size() * 3);
+    for (unsigned char c : s) {
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+            (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' || c == '~') {
+            out += (char)c;
+        } else {
+            out += '%';
+            out += hex[c >> 4];
+            out += hex[c & 15];
+        }
+    }
+    return out;
+}
+
+inline bool HttpPostForm(const wchar_t* host, const wchar_t* path,
+                         const std::string& body, const std::wstring& extra,
+                         std::string& out) {
+    detail::Api& api = detail::S().api;
+    if (!api.Load()) return false;
+    HINTERNET ses = detail::OpenSession(api);
+    if (!ses) return false;
+    api.pSetTimeouts(ses, 5000, 5000, 8000, 8000);
+    HINTERNET con = api.pConnect(ses, host, INTERNET_DEFAULT_HTTPS_PORT, 0);
+    if (!con) { api.pClose(ses); return false; }
+    HINTERNET req = api.pOpenRequest(con, L"POST", path, nullptr, nullptr,
+                                     WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE);
+    bool ok = false;
+    if (req) {
+        std::wstring hdr = detail::RequestHeaders();
+        hdr += extra;
+        char cl[64];
+        snprintf(cl, sizeof(cl), "Content-Length: %zu\r\n", body.size());
+        hdr += L"Content-Type: application/x-www-form-urlencoded; charset=UTF-8\r\n";
+        hdr += detail::Widen(std::string(cl));
+        if (api.pSendRequest(req, hdr.c_str(), (DWORD)-1, (LPVOID)body.data(),
+                             (DWORD)body.size(), (DWORD)body.size(), 0) &&
+            api.pReceiveResponse(req, nullptr)) {
+            DWORD code = 0, sz = sizeof(code);
+            api.pQueryHeaders(req, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
+                              WINHTTP_NO_HEADER_INDEX, &code, &sz, nullptr);
+            if (code == 200) {
+                DWORD got = 0;
+                char buf[4096];
+                while (api.pReadData(req, buf, sizeof(buf), &got) && got > 0)
+                    out.append(buf, got);
+                ok = !out.empty();
+            }
+        }
+        api.pClose(req);
+    }
+    api.pClose(con);
+    api.pClose(ses);
+    return ok;
+}
+
+inline bool SendDanmaku(const std::string& msg, std::string& err) {
+    if (!SendEnabled().load()) { err = "发送未开启"; return false; }
+    unsigned room = CurrentRoomId();
+    if (!room) { err = "弹幕未连接"; return false; }
+    std::string cookie, jct;
+    {
+        std::lock_guard<std::mutex> g(detail::AuthMutex());
+        cookie = detail::CookieJar();
+        jct = detail::CookieGet(cookie, "bili_jct");
+    }
+    if (jct.empty()) { err = "缺少 bili_jct，请重新登录"; return false; }
+
+    static std::mutex sendMtx;
+    static uint64_t lastMs = 0;
+    std::lock_guard<std::mutex> sg(sendMtx);
+    uint64_t now = GetTickCount64();
+    if (now - lastMs < 1600) { err = "发送太快，稍后再试"; return false; }
+    lastMs = now;
+
+    char rnd[32];
+    snprintf(rnd, sizeof(rnd), "%llu", (unsigned long long)now);
+    std::string body = "color=16777215&fontsize=25&mode=1&roomid=" +
+                       std::to_string(room) + "&rnd=" + rnd +
+                       "&msg=" + UrlEncode(msg) +
+                       "&csrf=" + UrlEncode(jct) +
+                       "&csrf_token=" + UrlEncode(jct);
+    std::string out;
+    std::wstring extra = L"Referer: https://live.bilibili.com/\r\n"
+                         L"Origin: https://live.bilibili.com\r\n";
+    if (!HttpPostForm(L"api.live.bilibili.com", L"/msg/send", body, extra, out)) {
+        err = "网络请求失败";
+        return false;
+    }
+    size_t p = out.find("\"code\"");
+    int code = -1;
+    if (p != std::string::npos) {
+        size_t c = out.find(':', p);
+        if (c != std::string::npos) code = atoi(out.c_str() + c + 1);
+    }
+    if (code != 0) {
+        err = "B站拒绝（" + std::to_string(code) + "）";
+        return false;
+    }
+    L().Info("chat send: ok len=%zu", msg.size());
+    return true;
+}
+
 inline bool Start(const Config& cfg, Callback cb) {
     auto& s = detail::S();
     if (s.running.load()) return true;

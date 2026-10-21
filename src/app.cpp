@@ -162,7 +162,6 @@ void App::SetRequestsEnabled(bool enabled) {
     request_enabled = enabled;
     if (!enabled) {
         CancelPendingLocked();
-        chat.clear();
     }
     SetNoticeLocked(enabled ? "enabled" : "disabled",
                     enabled ? "点歌已开启" : "点歌已关闭");
@@ -761,6 +760,67 @@ bool App::RemoveRequest(uint64_t id) {
     return false;
 }
 
+bool App::MoveRequest(uint64_t id, int toIndex) {
+    std::lock_guard<std::mutex> g(mtx);
+    size_t from = requests.size();
+    for (size_t i = 0; i < requests.size(); ++i) {
+        if (requests[i].id == id) {
+            from = i;
+            break;
+        }
+    }
+    if (from == requests.size()) return false;
+    int to = toIndex;
+    if (to < 0) to = 0;
+    if (to >= (int)requests.size()) to = (int)requests.size() - 1;
+    if ((int)from == to) return true;
+    SongRequest r = requests[from];
+    requests.erase(requests.begin() + (std::ptrdiff_t)from);
+    requests.insert(requests.begin() + to, r);
+    SaveQueueLocked();
+    return true;
+}
+
+bool App::MovePendingCandidate(int from, int to) {
+    std::lock_guard<std::mutex> g(mtx);
+    if (!pending.active) return false;
+    int n = (int)pending.candidates.size();
+    if (from < 0 || from >= n || to < 0 || to >= n) return false;
+    if (from == to) return true;
+    RequestCandidate c = pending.candidates[from];
+    pending.candidates.erase(pending.candidates.begin() + from);
+    pending.candidates.insert(pending.candidates.begin() + to, c);
+    return true;
+}
+
+bool App::RemovePendingCandidate(int index) {
+    std::lock_guard<std::mutex> g(mtx);
+    if (!pending.active) return false;
+    int n = (int)pending.candidates.size();
+    if (index < 0 || index >= n) return false;
+    pending.candidates.erase(pending.candidates.begin() + index);
+    if (pending.candidates.empty()) {
+        pending = PendingSelection{};
+        SetNoticeLocked("timeout", "候选已清空，请重新点歌");
+    }
+    return true;
+}
+
+bool App::ChoosePendingCandidate(int index) {
+    std::lock_guard<std::mutex> g(mtx);
+    if (!pending.active) return false;
+    int n = (int)pending.candidates.size();
+    if (index < 0 || index >= n) return false;
+    RequestCandidate c = pending.candidates[index];
+    std::string user = pending.user, q = pending.query;
+    unsigned uid = pending.uid;
+    int diff = pending.difficulty;
+    uint32_t t = pending.t_ms;
+    pending = PendingSelection{};
+    QueueCandidateLocked(c, user, uid, q, diff, t);
+    return true;
+}
+
 void App::ClearRequests() {
     std::lock_guard<std::mutex> g(mtx);
     requests.clear();
@@ -842,6 +902,8 @@ std::string App::BuildRequestsJsonLocked() {
         } else {
             s += "null";
         }
+        s += ",\"genre\":\"" + json_escape(si ? si->genre : "") + "\"";
+        s += ",\"version\":\"" + json_escape(si ? si->version : "") + "\"";
         s += ",\"playing\":" + std::string(r.playing ? "true" : "false");
         s += ",\"t\":" + std::to_string(r.t_ms) + "}";
     }
@@ -894,6 +956,9 @@ std::string App::BuildPendingJsonLocked() {
             }
         }
         s += "]";
+        const SongInfo* csi = db.FindById(c.song_id);
+        s += ",\"genre\":\"" + json_escape(csi ? csi->genre : "") + "\"";
+        s += ",\"version\":\"" + json_escape(csi ? csi->version : "") + "\"";
         if (!c.we_tag.empty()) s += ",\"we_tag\":\"" + json_escape(c.we_tag) + "\"";
         s += "}";
     }

@@ -89,6 +89,10 @@ public:
     // 房主按「序号 / 曲名」删歌；返回状态字符串
     std::string OwnerRemoveRequest(const std::string& arg);
     bool RemoveRequest(uint64_t id);
+    bool MoveRequest(uint64_t id, int toIndex);
+    bool MovePendingCandidate(int from, int to);
+    bool RemovePendingCandidate(int index);
+    bool ChoosePendingCandidate(int index);
     void ClearRequests();
     // 给叠加层显示一条提示（如权限不足）
     void SetNotice(const std::string& status, const std::string& text);

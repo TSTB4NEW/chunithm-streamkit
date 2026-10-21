@@ -2,6 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>CHUNITHM StreamKit Overlay</title>
 <style>
   :root {
@@ -35,6 +36,85 @@
     box-shadow: 0 4px 24px rgba(0,0,0,.45);
     overflow: hidden;
   }
+
+  /* 手机/窄屏：不再按 570px 缩放，直接铺满设备宽度 */
+  @media (max-width: 520px) {
+    body {
+      --ui-scale: 1;
+      width: 100%;
+      max-width: 100%;
+      margin: 0;
+    }
+    #stack { width: 100%; border-radius: 10px; }
+    #panel { padding: 10px 12px 14px; }
+    .title { font-size: 21px; }
+    .artist { font-size: 13px; }
+    .qminis { flex-basis: 46px; }
+    .qmini { width: 46px; height: 44px; flex-basis: 44px; }
+    .qslot.expanded .art { width: 84px; height: 84px; flex-basis: 84px; }
+    .qslot.expanded .qt { font-size: 15px; }
+    .qslot.expanded .qd { font-size: 12px; }
+    .qslot.expanded .qexp .er { font-size: 9px; }
+    #tip { max-width: 200px; }
+  }
+
+  /* JS 兜底：手机 UA/窄屏触摸设备 */
+  html.mobile body {
+    --ui-scale: 1;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+  }
+  html.mobile #stack { width: 100%; border-radius: 10px; }
+  html.mobile #panel { padding: 10px 12px 14px; }
+  html.mobile .title { font-size: 21px; }
+  html.mobile .artist { font-size: 13px; }
+  html.mobile .qminis { flex-basis: 46px; }
+  html.mobile .qmini { width: 46px; height: 44px; flex-basis: 44px; }
+  html.mobile .qslot.expanded .art { width: 84px; height: 84px; flex-basis: 84px; }
+  html.mobile .qslot.expanded .qt { font-size: 15px; }
+  html.mobile .qslot.expanded .qd { font-size: 12px; }
+  html.mobile .qslot.expanded .qexp .er { font-size: 9px; }
+  html.mobile #tip { max-width: 200px; }
+  html.mobile .playonly .judges,
+  html.mobile .playonly .flrow,
+  html.mobile .playonly .feedrow { display: none; }
+
+  .mobileChat { display: none; }
+  html.mobile .mobileChat {
+    display: block;
+    border-top: 1px solid rgba(255,255,255,.08);
+    padding: 8px 12px 12px;
+    background: rgba(255,255,255,.02);
+  }
+  .mc-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .mc-head span { font-size: 11px; font-weight: 700; color: #dfe6ff; }
+  .mc-head em { font-style: normal; font-size: 8px; color: #7f88a3; }
+  .mc-list { display: flex; flex-direction: column; gap: 5px; max-height: 160px; overflow-y: auto; }
+  .mc-row { display: flex; gap: 7px; font-size: 12px; line-height: 1.4; min-width: 0; }
+  .mc-row b { flex: 0 0 auto; max-width: 96px; color: #ffcf3a; font-weight: 600; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mc-row span { color: #d5daea; min-width: 0; font-size: 12px; word-break: break-word; }
+  .mc-send { display: flex; gap: 6px; margin-top: 7px; }
+  .mc-send input {
+    flex: 1 1 auto; min-width: 0;
+    height: 30px; padding: 0 9px;
+    border: 1px solid rgba(255,255,255,.18); border-radius: 6px;
+    background: rgba(0,0,0,.28); color: #eef2ff;
+    font-size: 11px; font-family: inherit; outline: none;
+  }
+  .mc-send input:focus { border-color: rgba(255,207,58,.65); }
+  .mc-send button {
+    flex: 0 0 52px; height: 30px;
+    border: 1px solid rgba(255,255,255,.22); border-radius: 6px;
+    background: rgba(255,255,255,.10); color: #eef2ff;
+    font-size: 11px; font-weight: 700; font-family: inherit; cursor: pointer;
+  }
+  .mc-send button:disabled { opacity: .45; }
+  .mc-status { min-height: 12px; margin-top: 3px; font-size: 9px; color: #ff8a8a; }
+  .mc-status.ok { color: #9fe6b8; }
   #stack:has(#panel.hidden):has(#queuePanel.hidden) { display: none; }
   #panel {
     padding: 12px 16px 16px;
@@ -133,7 +213,6 @@
     font-size: 9px; font-weight: 700; letter-spacing: .3px;
     color: #aeb6cc;
   }
-  .srtoggle b { font-size: 8px; color: #ff6a6a; letter-spacing: .3px; }
   .srtoggle .sw {
     width: 24px; height: 13px; border-radius: 999px;
     background: rgba(255,255,255,.14); position: relative;
@@ -145,13 +224,12 @@
     background: #9aa3b8; transition: left .45s ease, background .45s ease;
   }
   .srtoggle.on {
-    border-color: rgba(90,255,154,.40);
-    background: rgba(12, 30, 20, .90);
+    border-color: rgba(255,255,255,.34);
+    background: rgba(255,255,255,.05);
   }
-  .srtoggle.on .lbl { color: #d9ffe8; }
-  .srtoggle.on b { color: #5aff9a; }
-  .srtoggle.on .sw { background: #5aff9a; }
-  .srtoggle.on .sw i { left: 13px; background: #0b0d14; }
+  .srtoggle.on .lbl { color: #e6eaf4; }
+  .srtoggle.on .sw { background: #c9d0e0; }
+  .srtoggle.on .sw i { left: 13px; background: #11131c; }
   #panel.preview .jacket { filter: brightness(.88); }
 
   /* 超长曲名 / 曲师：由 JS 统一调度滚动节奏 */
@@ -387,24 +465,89 @@
   .sidecard.hidden { display: none; }
   #queuePanel { margin-top: 0; }
   .slist { display: flex; flex-direction: column; }
-  .qgrid { display: flex; gap: 7px; align-items: stretch; }
+  .qgrid { position: relative; height: 166px; }
   .qgrid.hidden { display: none; }
+  .qgrid.fast .qslot { transition-duration: .18s; }
+  #qnormalWrap { position: relative; }
 
   /* 固定 4 个候选位；没有点歌时保留空位 */
   .qslot {
-    flex: 1 1 0; min-width: 0; position: relative;
+    position: absolute; left: 0; top: 0;
+    min-width: 0;
     border: 3px solid rgba(255,255,255,.42);
     border-radius: 10px;
     padding: 3px 3px 5px;
     background: rgba(255,255,255,.03);
     animation: cardRise .65s cubic-bezier(.2,.8,.2,1);
-    transition: border-color .3s ease, box-shadow .3s ease;
+    transition: left .70s cubic-bezier(.22,.8,.2,1), top .70s cubic-bezier(.22,.8,.2,1),
+                width .70s cubic-bezier(.22,.8,.2,1), height .70s cubic-bezier(.22,.8,.2,1),
+                transform .70s cubic-bezier(.22,.8,.2,1), opacity .35s ease,
+                border-color .3s ease, box-shadow .3s ease;
+    will-change: left, top, width, height, transform;
   }
+  .qslot[draggable="true"] { cursor: grab; }
+  .qslot:hover { box-shadow: 0 5px 16px rgba(0,0,0,.45); }
+  .qslot.dragging { opacity: .42; cursor: grabbing; }
+  .qslot.drag-over {
+    box-shadow: 0 0 0 2px #ffcf3a, 0 6px 20px rgba(0,0,0,.5);
+  }
+  .qslot.expanded {
+    display: flex; align-items: center; gap: 12px;
+    padding: 9px; z-index: 30;
+    background: rgba(10,12,24,.97);
+    box-shadow: 0 8px 24px rgba(0,0,0,.55);
+  }
+  .qslot.expanded .art {
+    width: 112px; height: 112px; flex: 0 0 112px; aspect-ratio: auto;
+  }
+  .qslot.expanded .qinfo { flex: 1 1 auto; min-width: 0; }
+  .qslot.expanded .qt { font-size: 17px; line-height: 1.25; min-height: 0; }
+  .qslot.expanded .qd { font-size: 14px; margin-top: 4px; }
+  .qslot.expanded .qd:empty { display: none; }
+  .qslot.expanded .qexp { display: block; margin-top: 6px; }
+  .qslot.expanded .qt { animation: qlineIn .4s ease; }
+  @keyframes qlineIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .qslot.stacked .qinfo, .qslot.stacked .qdel { display: none; }
+  .qslot.stacked { padding: 3px; }
+  .qinfo { min-width: 0; }
+  .qexp { display: none; margin-top: 5px; }
+  .qexp .er {
+    font-size: 10px; color: #c6cbe0; line-height: 1.5;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    opacity: 0; transform: translateY(5px);
+    transition: opacity .45s ease, transform .45s ease;
+  }
+  .qslot.expanded .qexp .er { opacity: 1; transform: translateY(0); }
+  .qslot.expanded .qexp .er:nth-child(1) { transition-delay: .18s; }
+  .qslot.expanded .qexp .er:nth-child(2) { transition-delay: .28s; }
+  .qslot.expanded .qexp .er:nth-child(3) { transition-delay: .38s; }
+  .qslot.expanded .qexp .er:nth-child(4) { transition-delay: .48s; }
+  .qexp .er b { color: #7f88a3; font-weight: 600; margin-right: 5px; }
+  .qdel {
+    position: absolute; top: 4px; right: 4px; z-index: 6;
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,.28);
+    background: rgba(8,10,18,.82); color: #e8edff;
+    font-size: 13px; line-height: 16px; text-align: center;
+    padding: 0; cursor: pointer;
+    opacity: 0; transform: scale(.8);
+    transition: opacity .18s ease, transform .18s ease, background .18s ease;
+    pointer-events: none;
+  }
+  .qslot:hover .qdel { opacity: 1; transform: scale(1); pointer-events: auto; }
+  .qdel:hover { background: #ff5a5a; border-color: #ff8a8a; }
   .qslot.empty {
     border-style: dashed;
     border-color: rgba(255,255,255,.18);
     background: rgba(255,255,255,.012);
     animation: none;
+  }
+  .qslot.no-diff {
+    background: rgba(255,255,255,.035);
+    box-shadow: none;
   }
   /* ULTIMA：石墨底 + 白边 + 底部红线（B + D） */
   .qslot.ultima {
@@ -428,7 +571,7 @@
   }
   .qslot.empty .art { background: rgba(255,255,255,.02); }
   .qslot .art img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .qslot > * { position: relative; z-index: 1; }
+  .qslot > *:not(.qdel) { position: relative; z-index: 1; }
   .qslot .pbadge {
     display: none; position: absolute; left: 5px; top: 5px; z-index: 2;
     padding: 1px 5px; border-radius: 4px;
@@ -464,7 +607,7 @@
   .qslot.diff .qd { color: var(--dc); }
   /* 队列超出 4 首时的 +N 小栏：亚克力模糊 */
   .qmore {
-    flex: 0 0 30px;
+    position: absolute; right: 0; top: 0; width: 30px; height: 166px;
     display: flex; align-items: center; justify-content: center;
     border: 3px solid rgba(255,255,255,.28);
     border-radius: 10px;
@@ -515,12 +658,34 @@
     will-change: transform, opacity;
   }
   .choice {
+    position: relative;
     display: flex; align-items: center; gap: 8px;
     padding: 5px 7px; border-radius: 8px;
     border: 1px solid rgba(255,255,255,.10);
     background: rgba(255,255,255,.03);
     animation: rowIn .3s ease;
+    transition: background .2s ease, border-color .2s ease, transform .18s ease;
+    cursor: pointer;
   }
+  .choice:hover {
+    background: rgba(255,255,255,.06);
+    border-color: rgba(255,255,255,.22);
+    transform: translateX(2px);
+  }
+  .choice.dragging { opacity: .42; }
+  .choice.drag-over { border-color: #ffcf3a; box-shadow: 0 0 0 1px #ffcf3a; }
+  .choice .cdel {
+    position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+    width: 17px; height: 17px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,.25);
+    background: rgba(8,10,18,.75); color: #dfe6ff;
+    font-size: 12px; line-height: 15px; text-align: center; padding: 0;
+    cursor: pointer; opacity: .0;
+    transition: opacity .18s ease, background .18s ease;
+    pointer-events: none;
+  }
+  .choice:hover .cdel { opacity: .9; pointer-events: auto; }
+  .choice .cdel:hover { background: #ff5a5a; }
   .choice .num {
     flex: 0 0 18px; text-align: center;
     font-size: 14px; font-weight: 800; color: var(--jc);
@@ -570,6 +735,25 @@
   #qmsg.err { color: #ff7a7a; }
   #qmsg.ask { color: #9fc3ff; }
   #qmsg.hidden { display: none; }
+
+  #tip {
+    position: fixed; left: 0; top: 0; z-index: 200;
+    min-width: 160px; max-width: 240px;
+    padding: 7px 9px; border-radius: 8px;
+    background: rgba(8, 10, 18, .97);
+    border: 1px solid rgba(255,255,255,.16);
+    box-shadow: 0 8px 26px rgba(0,0,0,.6);
+    color: #eef2ff; font-size: 10px; line-height: 1.4;
+    pointer-events: none; opacity: 0;
+    transform: translateY(5px) scale(.98);
+    transition: opacity .16s ease, transform .16s ease;
+  }
+  #tip.show { opacity: 1; transform: translateY(0) scale(1); }
+  #tip .tt { font-size: 12px; font-weight: 700; margin-bottom: 2px; }
+  #tip .ta { color: #9aa3bd; margin-bottom: 4px; }
+  #tip .tr { display: flex; gap: 6px; color: #c6cbe0; }
+  #tip .tr b { color: #7f88a3; font-weight: 600; min-width: 34px; }
+  #tip .td { margin-top: 5px; color: #ffcf3a; }
 </style>
 </head>
 <body>
@@ -620,31 +804,55 @@
 
   <div id="srbar">
     <button id="srToggle" class="srtoggle" type="button">
-      <span class="lbl">点歌板</span><b>OFF</b><span class="sw"><i></i></span>
+      <span class="lbl">点歌板</span><span class="sw"><i></i></span>
     </button>
   </div>
 
   <div id="queuePanel" class="sidecard hidden">
-    <div id="qnormal" class="qgrid"></div>
+    <div id="qnormalWrap">
+      <div id="qnormal" class="qgrid"></div>
+    </div>
     <div id="qselect" class="qselect hidden">
       <div id="qminis" class="qminis"></div>
       <div id="qchoices" class="qchoices"></div>
     </div>
     <div id="qmsg" class="hidden"></div>
   </div>
+
+  <div id="mobileChat" class="mobileChat">
+    <div class="mc-head"><span>弹幕</span><em>发送请遵守直播间规则</em></div>
+    <div id="mcList" class="mc-list"></div>
+    <div class="mc-send">
+      <input id="mcInput" type="text" maxlength="20" placeholder="发一条弹幕…" autocomplete="off">
+      <button id="mcSend" type="button">发送</button>
+    </div>
+    <div id="mcStatus" class="mc-status"></div>
   </div>
+  </div>
+  <div id="tip"></div>
 
 <script>
 (function () {
   'use strict';
+  var ua = navigator.userAgent || '';
+  var phoneUA = /iPhone|iPod|iPad|Tablet|Windows Phone|Android.*Mobile|Mobile/i.test(ua);
+  var touchNarrow = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches &&
+                       window.innerWidth <= 1024);
+  if (phoneUA || touchNarrow) document.documentElement.classList.add('mobile');
   var $ = function (id) { return document.getElementById(id); };
   var panel = $('panel'), feedEl = $('feed');
   var srToggleEl = $('srToggle');
   var queuePanel = $('queuePanel'), qnormalEl = $('qnormal'),
       qselectEl = $('qselect'), qminisEl = $('qminis'), qchoicesEl = $('qchoices'),
-      qmsgEl = $('qmsg');
+      qmsgEl = $('qmsg'), mcListEl = $('mcList');
+  var mcInputEl = $('mcInput'), mcSendEl = $('mcSend'), mcStatusEl = $('mcStatus');
+  var lastChatSig = '';
   var qEls = {}, qSlots = [], qMoreEl = null;
+  var tipEl = $('tip'), dragState = null, dragGuardUntil = 0;
+  var lastQueueItems = [], queueHoverId = 0, queueFan = false, queueFanTimer = 0;
+  var currentPlayDiff = -1;
   var lastSelectSig = '';
+  var lastQueueSig = null;
   var choiceScrollTimer = 0;
   var choiceScrollRAF = 0;
   var lastQNotice = '';
@@ -934,12 +1142,288 @@
 
   var DIFF_SHORT = ['BASIC', 'ADV', 'EXP', 'MAST', 'ULT', 'WE'];
 
+  function escHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  }
+
+  function fmtConst(v) {
+    var n = Number(v);
+    return (Math.round(n * 10) / 10).toString();
+  }
+
+  function tipHtml(d, isCandidate) {
+    var h = '<div class="tt">' + escHtml(d.title || '') + '</div>';
+    if (d.artist) h += '<div class="ta">' + escHtml(d.artist) + '</div>';
+    if (d.version) h += '<div class="tr"><b>版本</b><span>' + escHtml(d.version) + '</span></div>';
+    if (d.genre) h += '<div class="tr"><b>分类</b><span>' + escHtml(d.genre) + '</span></div>';
+    if (isCandidate && d.difficulty >= 0) {
+      var cv = (d.consts && d.consts[d.difficulty] != null) ? d.consts[d.difficulty] : 0;
+      h += '<div class="td">' + DIFF_NAMES[d.difficulty] +
+           (cv > 0 ? ' ' + fmtConst(cv) : '') + '</div>';
+    } else if (!isCandidate && d.difficulty >= 0) {
+      h += '<div class="td">' + DIFF_NAMES[d.difficulty] +
+           (d.const > 0 ? ' ' + fmtConst(d.const) : '') + '</div>';
+    }
+    return h;
+  }
+
+  function showTip(el, data, isCandidate) {
+    if (!el || !data) return;
+    if (tipEl.__el === el) return;
+    tipEl.__el = el;
+    tipEl.innerHTML = tipHtml(data, isCandidate);
+    tipEl.classList.add('show');
+    var r = el.getBoundingClientRect();
+    var tw = tipEl.offsetWidth, th = tipEl.offsetHeight;
+    var left = Math.max(8, Math.min(window.innerWidth - tw - 8, r.left));
+    var top = r.top - th - 6;
+    if (top < 8) top = r.bottom + 6;
+    if (top + th > window.innerHeight - 8) top = Math.max(8, window.innerHeight - th - 8);
+    tipEl.style.left = left + 'px';
+    tipEl.style.top = top + 'px';
+  }
+
+  function hideTip() {
+    tipEl.classList.remove('show');
+    tipEl.__el = null;
+  }
+
+  function postAction(url) {
+    fetch(url, { method: 'POST' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { if (d && d.ok) pollState(); })
+      .catch(function () {});
+  }
+
+  // 队列卡片布局：普通 4 张；悬停时选中卡展开到 2/3，其余卡右侧叠放后扇形展开
+  function layoutQueue() {
+    var W = qnormalEl.clientWidth || 542;
+    var H = 166, gap = 10;
+    var more = lastQueueItems.length > 4;
+    var cardW = Math.floor((W - 3 * gap - (more ? 34 : 0)) / 4);
+    if (cardW < 80) cardW = 80;
+    var hover = queueHoverId;
+    if (hover) {
+      var found = false;
+      for (var h = 0; h < lastQueueItems.length; ++h) {
+        if (lastQueueItems[h].id === hover) { found = true; break; }
+      }
+      if (!found) { queueHoverId = 0; hover = 0; }
+    }
+    var other = 0;
+    for (var i = 0; i < 4; ++i) {
+      var el = qnormalEl.children[i];
+      if (!el) continue;
+      var isCard = el.dataset && el.dataset.reqId;
+      if (isCard && Number(el.dataset.reqId) === hover) {
+        el.classList.add('expanded');
+        el.classList.remove('stacked');
+        el.style.left = '0px';
+        el.style.top = '0px';
+        el.style.width = Math.round(W * 0.68) + 'px';
+        el.style.height = H + 'px';
+        el.style.transform = '';
+        el.style.zIndex = '30';
+        el.style.opacity = '1';
+        el.style.pointerEvents = 'auto';
+        el.style.transitionDelay = '0ms';
+      } else if (hover) {
+        el.classList.remove('expanded');
+        if (!isCard) {
+          el.style.opacity = '0';
+          el.style.pointerEvents = 'none';
+          continue;
+        }
+        var j = other++;
+        if (j > 0) el.classList.add('stacked'); else el.classList.remove('stacked');
+        var fanStep = 50;
+        var left = W - cardW - 2 - (queueFan ? j * 10 : 0);
+        var top = 2 + (queueFan ? j * 4 : 0);
+        el.style.left = left + 'px';
+        el.style.top = top + 'px';
+        el.style.width = cardW + 'px';
+        el.style.height = (H - 8) + 'px';
+        el.style.transform = 'rotate(' + (queueFan ? (j - 1) * 4 : 0) + 'deg)';
+        el.style.zIndex = String(12 - j);
+        el.style.opacity = '1';
+        el.style.pointerEvents = 'none';
+        el.style.transitionDelay = queueFan ? (j * fanStep) + 'ms' : '0ms';
+      } else {
+        el.classList.remove('expanded');
+        el.classList.remove('stacked');
+        el.style.left = (i * (cardW + gap)) + 'px';
+        el.style.top = '0px';
+        el.style.width = cardW + 'px';
+        el.style.height = H + 'px';
+        el.style.transform = '';
+        el.style.zIndex = '1';
+        el.style.opacity = '1';
+        el.style.pointerEvents = 'auto';
+        el.style.transitionDelay = '0ms';
+      }
+    }
+    if (qMoreEl) {
+      qMoreEl.style.right = '0px';
+      qMoreEl.style.top = '0px';
+      qMoreEl.style.height = H + 'px';
+      qMoreEl.style.opacity = hover ? '0' : '1';
+      qMoreEl.style.pointerEvents = hover ? 'none' : 'auto';
+    }
+  }
+
+  function closeQueueHover(fast) {
+    if (!queueHoverId) return;
+    queueHoverId = 0;
+    queueFan = false;
+    clearTimeout(queueFanTimer);
+    if (fast) qnormalEl.classList.add('fast');
+    else qnormalEl.classList.remove('fast');
+    layoutQueue();
+    if (fast) setTimeout(function () { qnormalEl.classList.remove('fast'); }, 240);
+  }
+
+  qchoicesEl.addEventListener('mouseover', function (e) {
+    var el = e.target.closest ? e.target.closest('.choice') : null;
+    if (!el || !el.__data) return;
+    showTip(el, el.__data, true);
+  });
+  qchoicesEl.addEventListener('mouseout', function (e) {
+    var el = e.target.closest ? e.target.closest('.choice') : null;
+    if (el) hideTip();
+  });
+  qminisEl.addEventListener('mouseover', function (e) {
+    var el = e.target.closest ? e.target.closest('.qmini') : null;
+    if (el && el.__data) showTip(el, el.__data, false);
+  });
+  qminisEl.addEventListener('mouseout', hideTip);
+
+  // 队列拖拽排序
+  qnormalEl.addEventListener('dragstart', function (e) {
+    var card = e.target.closest ? e.target.closest('.qslot') : null;
+    if (!card || !card.dataset.reqId) { e.preventDefault(); return; }
+    // 长按拖动 = 准备自定义排序：先回弹到标准布局
+    closeQueueHover(false);
+    dragState = { type: 'queue', id: card.dataset.reqId };
+    dragGuardUntil = Date.now() + 500;
+    card.classList.add('dragging');
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', card.dataset.reqId);
+    }
+  });
+  qnormalEl.addEventListener('dragend', function () {
+    var d = qnormalEl.querySelector('.dragging');
+    if (d) d.classList.remove('dragging');
+    var o = qnormalEl.querySelector('.drag-over');
+    if (o) o.classList.remove('drag-over');
+    dragState = null;
+  });
+  qnormalEl.addEventListener('dragover', function (e) {
+    if (!dragState || dragState.type !== 'queue') return;
+    e.preventDefault();
+    var card = e.target.closest ? e.target.closest('.qslot') : null;
+    var old = qnormalEl.querySelector('.drag-over');
+    if (old && old !== card) old.classList.remove('drag-over');
+    if (card) card.classList.add('drag-over');
+  });
+  qnormalEl.addEventListener('drop', function (e) {
+    if (!dragState || dragState.type !== 'queue') return;
+    e.preventDefault();
+    var card = e.target.closest ? e.target.closest('.qslot') : null;
+    var kids = Array.prototype.slice.call(qnormalEl.children);
+    var index = card ? kids.indexOf(card) : -1;
+    if (index >= 0 && index < 4) {
+      postAction('/queue/move?id=' + encodeURIComponent(dragState.id) + '&to=' + index);
+    }
+    var o = qnormalEl.querySelector('.drag-over');
+    if (o) o.classList.remove('drag-over');
+    dragState = null;
+  });
+  qnormalEl.addEventListener('click', function (e) {
+    if (Date.now() < dragGuardUntil) return;
+    var b = e.target.closest ? e.target.closest('.qdel') : null;
+    if (b) {
+      e.stopPropagation();
+      var delCard = b.closest('.qslot');
+      if (delCard && delCard.dataset.reqId)
+        postAction('/queue/remove?id=' + encodeURIComponent(delCard.dataset.reqId));
+      return;
+    }
+    var card = e.target.closest ? e.target.closest('.qslot') : null;
+    if (!card || card.classList.contains('empty') || !card.dataset.reqId) return;
+    var id = Number(card.dataset.reqId);
+    if (queueHoverId === id) {
+      closeQueueHover(false);
+      return;
+    }
+    queueHoverId = id;
+    queueFan = false;
+    clearTimeout(queueFanTimer);
+    layoutQueue();
+    queueFanTimer = setTimeout(function () {
+      if (queueHoverId === id) {
+        queueFan = true;
+        layoutQueue();
+      }
+    }, 440);
+  });
+
+  // 候选拖拽排序 / 删除
+  qchoicesEl.addEventListener('dragstart', function (e) {
+    var row = e.target.closest ? e.target.closest('.choice') : null;
+    if (!row) { e.preventDefault(); return; }
+    dragState = { type: 'pending', index: Number(row.dataset.idx) };
+    dragGuardUntil = Date.now() + 500;
+    row.classList.add('dragging');
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(row.dataset.idx));
+    }
+  });
+  qchoicesEl.addEventListener('dragend', function () {
+    var d = qchoicesEl.querySelector('.dragging');
+    if (d) d.classList.remove('dragging');
+    var o = qchoicesEl.querySelector('.drag-over');
+    if (o) o.classList.remove('drag-over');
+    dragState = null;
+  });
+  qchoicesEl.addEventListener('dragover', function (e) {
+    if (!dragState || dragState.type !== 'pending') return;
+    e.preventDefault();
+    var row = e.target.closest ? e.target.closest('.choice') : null;
+    var old = qchoicesEl.querySelector('.drag-over');
+    if (old && old !== row) old.classList.remove('drag-over');
+    if (row) row.classList.add('drag-over');
+  });
+  qchoicesEl.addEventListener('drop', function (e) {
+    if (!dragState || dragState.type !== 'pending') return;
+    e.preventDefault();
+    var row = e.target.closest ? e.target.closest('.choice') : null;
+    if (row) {
+      postAction('/pending/move?from=' + dragState.index + '&to=' + row.dataset.idx);
+    }
+    var o = qchoicesEl.querySelector('.drag-over');
+    if (o) o.classList.remove('drag-over');
+    dragState = null;
+  });
+  qchoicesEl.addEventListener('click', function (e) {
+    if (Date.now() < dragGuardUntil) return;
+    var row = e.target.closest ? e.target.closest('.choice') : null;
+    if (row) postAction('/pending/choose?index=' + row.dataset.idx);
+  });
+
+
   function newCard() {
     var card = document.createElement('div');
     card.className = 'qslot';
+    card.draggable = true;
     card.innerHTML = '<div class="art"><img alt="">' +
                      '<span class="pbadge">PLAYING</span></div>' +
-                     '<div class="qt"></div><div class="qd"></div>';
+                     '<div class="qinfo"><div class="qt"></div><div class="qd"></div>' +
+                     '<div class="qexp"></div></div>' +
+                     '<button class="qdel" type="button" title="删除">×</button>';
     var im = card.querySelector('img');
     im.addEventListener('error', function () { this.style.display = 'none'; });
     return card;
@@ -959,6 +1443,7 @@
       var col = QDIFF_COLORS[diff];
       var accent = (diff === 4) ? '#ff4a4a' : col;
       card.classList.add('diff');
+      card.classList.remove('no-diff');
       card.style.borderColor = col;
       card.style.setProperty('--dc', accent);
       card.style.setProperty('--rc', accent);
@@ -967,15 +1452,31 @@
       if (cval > 0) qd.textContent += ' ' + (Math.round(cval * 10) / 10).toString();
     } else {
       card.classList.remove('diff');
-      card.style.borderColor = 'rgba(255,255,255,.42)';
+      card.classList.add('no-diff');
+      card.style.borderColor = 'rgba(255,255,255,.32)';
       card.style.setProperty('--dc', '#c6cbe0');
-      card.style.setProperty('--rc', '#ffcf3a');
+      card.style.setProperty('--rc', '#9aa3b8');
       qd.textContent = '';
     }
     card.classList.toggle('playing', !!it.playing);
+    if (it.playing && diff < 0 && currentPlayDiff >= 0 && currentPlayDiff < 6) {
+      card.style.setProperty('--rc', currentPlayDiff === 4 ? '#ff4a4a' : QDIFF_COLORS[currentPlayDiff]);
+    }
     card.classList.toggle('ultima', diff === 4);
     for (var di = 0; di < 6; ++di) card.classList.remove('d' + di);
     if (diff >= 0 && diff < 6) card.classList.add('d' + diff);
+    card.__data = it;
+    card.dataset.reqId = String(it.id);
+    card.title = '单击查看详情，拖动排序';
+    var exp = card.querySelector('.qexp');
+    if (exp) {
+      var eh = '';
+      if (it.artist) eh += '<div class="er"><b>曲师</b>' + escHtml(it.artist) + '</div>';
+      if (it.version) eh += '<div class="er"><b>版本</b>' + escHtml(it.version) + '</div>';
+      if (it.genre) eh += '<div class="er"><b>分类</b>' + escHtml(it.genre) + '</div>';
+      if (it.user) eh += '<div class="er"><b>点歌</b>' + escHtml(it.user) + '</div>';
+      exp.innerHTML = eh;
+    }
   }
 
   function emptySlot() {
@@ -986,6 +1487,7 @@
   }
 
   function renderSlots(items, max) {
+    lastQueueItems = items || [];
     var seen = {};
     for (var i = 0; i < 4; ++i) {
       var el;
@@ -997,6 +1499,7 @@
           qEls[key] = el;
         }
         renderCard(el, it);
+        el.dataset.key = 'r' + key;
         seen[key] = true;
       } else {
         el = qSlots[i];
@@ -1004,6 +1507,7 @@
           el = emptySlot();
           qSlots[i] = el;
         }
+        el.dataset.key = 'e' + i;
       }
       if (qnormalEl.children[i] !== el) qnormalEl.insertBefore(el, qnormalEl.children[i] || null);
     }
@@ -1018,6 +1522,7 @@
         delete qEls[k];
       }
     }
+    // 重排 FLIP 动画已由 qslot 的 left/top/width 过渡接管
     var more = items.length - 4;
     if (more > 0) {
       if (!qMoreEl) {
@@ -1029,6 +1534,7 @@
     } else if (qMoreEl && qMoreEl.parentNode) {
       qMoreEl.parentNode.removeChild(qMoreEl);
     }
+    layoutQueue();
   }
 
   function startChoiceScroll(track, total) {
@@ -1085,6 +1591,7 @@
       var it = items[i];
       var m = document.createElement('div');
       m.className = 'qmini';
+      m.__data = it;
       var diff = (typeof it.difficulty === 'number') ? it.difficulty : -1;
       m.style.borderColor = diff >= 0 ? QDIFF_COLORS[diff] : 'rgba(255,255,255,.42)';
       m.classList.toggle('ultima', diff === 4);
@@ -1112,6 +1619,13 @@
       var c = cs[i];
       var row = document.createElement('div');
       row.className = 'choice';
+      row.draggable = true;
+      row.dataset.idx = i;
+      row.title = '点击选择 / 拖动排序';
+      row.__data = {
+        title: c.title, artist: c.artist, genre: c.genre, version: c.version,
+        difficulty: p.difficulty, consts: c.consts
+      };
       row.classList.toggle('ultima', p.difficulty === 4);
       if (p.difficulty >= 0 && p.difficulty < 6) row.classList.add('d' + p.difficulty);
       var num = document.createElement('div');
@@ -1157,15 +1671,92 @@
     }
   }
 
+  function applyMobileChat(chat) {
+    if (!mcListEl) return;
+    var items = (chat && chat.items) || [];
+    var sig = '';
+    for (var i = 0; i < items.length; ++i) sig += (items[i].user || '') + '\u0001' + (items[i].text || '') + '\u0002';
+    if (sig === lastChatSig) return;
+    lastChatSig = sig;
+    mcListEl.innerHTML = '';
+    if (!items.length) {
+      var empty = document.createElement('div');
+      empty.className = 'mc-row';
+      empty.innerHTML = '<span style="color:#7f88a3">暂无弹幕</span>';
+      mcListEl.appendChild(empty);
+      return;
+    }
+    for (var j = 0; j < items.length; ++j) {
+      var m = items[j];
+      var row = document.createElement('div');
+      row.className = 'mc-row';
+      var u = document.createElement('b');
+      u.textContent = m.user || '';
+      var t = document.createElement('span');
+      t.textContent = m.text || '';
+      row.appendChild(u);
+      row.appendChild(t);
+      mcListEl.appendChild(row);
+    }
+    mcListEl.scrollTop = mcListEl.scrollHeight;
+  }
+
+  function setMcStatus(text, ok) {
+    if (!mcStatusEl) return;
+    mcStatusEl.textContent = text || '';
+    mcStatusEl.classList.toggle('ok', !!ok);
+  }
+
+  function sendChat() {
+    if (!mcInputEl || !mcSendEl) return;
+    var msg = mcInputEl.value.trim();
+    if (!msg) { setMcStatus('先输入内容', false); return; }
+    mcSendEl.disabled = true;
+    setMcStatus('发送中…', true);
+    fetch(API + '/chat/send?msg=' + encodeURIComponent(msg), { method: 'POST' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d && d.ok) {
+          mcInputEl.value = '';
+          setMcStatus('已发送', true);
+          pollState();
+        } else {
+          setMcStatus((d && d.error) || '发送失败', false);
+        }
+      })
+      .catch(function () { setMcStatus('网络错误', false); })
+      .then(function () { mcSendEl.disabled = false; });
+  }
+
+  if (mcSendEl) mcSendEl.addEventListener('click', sendChat);
+  if (mcInputEl) mcInputEl.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); sendChat(); }
+  });
+
+  function queueSignature(items) {
+    var s = '';
+    for (var i = 0; i < items.length; ++i) {
+      var it = items[i];
+      s += it.id + ':' + it.song_id + ':' + it.difficulty + ':' +
+           it['const'] + ':' + (it.playing ? 1 : 0) + ':' + (it.title || '') + ';';
+    }
+    return s;
+  }
+
   function applyQueue(r, p) {
     if (!r || !r.enabled) {
       queuePanel.classList.add('hidden');
+      lastQueueSig = null;
       return;
     }
     queuePanel.classList.remove('hidden');
     var all = r.items || [];
 
     if (p && p.active) {
+      lastQueueSig = null;
+      queueHoverId = 0;
+      queueFan = false;
+      clearTimeout(queueFanTimer);
       qnormalEl.classList.add('hidden');
       qselectEl.classList.remove('hidden');
       var sig = String(p.t) + '|';
@@ -1195,7 +1786,11 @@
       qmsgEl.classList.remove('ask');
       qmsgEl.classList.add('hidden');
     }
-    renderSlots(all, r.max);
+    var qsig = queueSignature(all);
+    if (qsig !== lastQueueSig) {
+      lastQueueSig = qsig;
+      renderSlots(all, r.max);
+    }
 
     if (r.last && r.last.status && r.last.t) {
       var key = r.last.t + '|' + r.last.status + '|' + (r.last.query || '');
@@ -1209,10 +1804,11 @@
   function applyState(s) {
     if (!s || !s.game) return;
     var g = s.game, song = s.song || {};
+    currentPlayDiff = (typeof g.difficulty === 'number') ? g.difficulty : -1;
     applyQueue(s.request, s.pending);
+    applyMobileChat(s.chat);
     var srOn = !!(s.request && s.request.enabled);
     srToggleEl.classList.toggle('on', srOn);
-    srToggleEl.querySelector('b').textContent = srOn ? 'ON' : 'OFF';
     var inGame = !!g.in_game || !!s.demo;
     var hasSong = !!song.known && g.music_id > 0;
 

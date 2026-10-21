@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CHUNITHM StreamKit 安装检查</title>
+<style>
+  :root { --bg:#0b0d14; --card:#111522; --line:rgba(255,255,255,.10); --fg:#eef2ff; --dim:#8a93aa; --ok:#7fe0a5; --bad:#ff8a8a; --warn:#ffcf3a; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family:"Segoe UI","Microsoft YaHei",sans-serif; padding:18px; }
+  .wrap { max-width:760px; margin:0 auto; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  .sub { color:var(--dim); font-size:12px; margin-bottom:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:10px; }
+  .row { display:flex; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid rgba(255,255,255,.05); font-size:13px; }
+  .row:last-child { border-bottom:0; }
+  .row .k { flex:0 0 110px; color:var(--dim); }
+  .row .v { flex:1 1 auto; min-width:0; word-break:break-all; }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--dim); flex:0 0 8px; }
+  .dot.ok { background:var(--ok); box-shadow:0 0 8px rgba(127,224,165,.7); }
+  .dot.bad { background:var(--bad); }
+  .dot.warn { background:var(--warn); }
+  .buttons { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+  button, .btn { border:1px solid var(--line); background:rgba(255,255,255,.07); color:var(--fg); border-radius:6px; padding:7px 11px; font-size:12px; cursor:pointer; text-decoration:none; font-family:inherit; }
+  button:hover, .btn:hover { background:rgba(255,255,255,.12); }
+  button:disabled { opacity:.4; cursor:default; }
+  .warnbox { border-color:rgba(255,207,58,.35); }
+  .warnbox h2 { color:var(--warn); }
+  h2 { font-size:13px; margin:0 0 6px; }
+  ul { margin:6px 0 0 18px; padding:0; font-size:12px; color:#c6cbe0; line-height:1.7; }
+  pre { background:#080a10; border:1px solid var(--line); border-radius:7px; padding:10px; font-size:11px; overflow:auto; color:#c6cbe0; }
+  code { color:#ffcf3a; }
+  a { color:#9fc3ff; }
+  .hide { display:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>CHUNITHM StreamKit 安装检查</h1>
+  <div class="sub">本页只在本机可用 · 检查插件、点歌、弹幕和局域网状态</div>
+
+  <div id="err" class="card warnbox hide"><h2>无法连接插件</h2><div id="errmsg" style="font-size:12px"></div></div>
+
+  <div class="card">
+    <h2>运行状态</h2>
+    <div class="row"><span class="dot" id="d-http"></span><span class="k">HTTP 服务</span><span class="v" id="v-http">检查中…</span></div>
+    <div class="row"><span class="dot" id="d-db"></span><span class="k">本地曲库</span><span class="v" id="v-db">-</span></div>
+    <div class="row"><span class="dot" id="d-req"></span><span class="k">点歌板</span><span class="v" id="v-req">-</span></div>
+    <div class="row"><span class="dot" id="d-dm"></span><span class="k">弹幕连接</span><span class="v" id="v-dm">-</span></div>
+    <div class="row"><span class="dot" id="d-auth"></span><span class="k">B站登录</span><span class="v" id="v-auth">-</span></div>
+    <div class="row"><span class="dot" id="d-send"></span><span class="k">网页发弹幕</span><span class="v" id="v-send">-</span></div>
+    <div class="row"><span class="dot" id="d-alias"></span><span class="k">别名数据</span><span class="v" id="v-alias">-</span></div>
+    <div class="row"><span class="dot"></span><span class="k">当前房间</span><span class="v" id="v-room">-</span></div>
+  </div>
+
+  <div class="card">
+    <h2>操作</h2>
+    <div class="buttons">
+      <button id="btn-refresh">刷新状态</button>
+      <button id="btn-toggle">切换点歌板</button>
+      <a class="btn" href="/" target="_blank">打开叠加层</a>
+      <a class="btn" href="/login.html" target="_blank">打开 B站 登录</a>
+      <a class="btn" href="/chat.html" target="_blank">打开独立弹幕栏</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>OBS 地址</h2>
+    <div class="row"><span class="k">主叠加层</span><span class="v" id="obs-main"></span></div>
+    <div class="row"><span class="k">独立弹幕</span><span class="v" id="obs-chat"></span></div>
+    <div class="buttons"><button id="btn-copy-obs">复制主叠加层地址</button></div>
+  </div>
+
+  <div class="card">
+    <h2>局域网 / 手机访问</h2>
+    <div class="row"><span class="k">当前地址</span><span class="v" id="cur-url"></span></div>
+    <div class="row"><span class="k">手机地址</span><span class="v" id="phone-url">-</span></div>
+    <ul>
+      <li>手机和电脑连同一个 Wi-Fi</li>
+      <li>ini 的 <code>[server] host</code> 改成 <code>0.0.0.0</code></li>
+      <li>重启游戏；防火墙允许 <code>chusanApp.exe</code> 或 TCP 8770</li>
+      <li>登录页只允许电脑本机打开，手机不需要登录</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>启用模块</h2>
+    <pre>[server]
+host=0.0.0.0
+port=8770
+
+[danmaku]
+enabled=1
+room_id=你的直播间号
+protover=3
+allow_send=1
+
+[songrequest]
+enabled=1</pre>
+    <div style="font-size:11px;color:#8a93aa;margin-top:6px">改完 ini 需要重启游戏。</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var API = location.protocol === 'file:' ? 'http://127.0.0.1:8770' : '';
+  var last = null;
+
+  function setDot(id, state) {
+    var el = $(id);
+    if (!el) return;
+    el.className = 'dot' + (state ? ' ' + state : '');
+  }
+
+  function fetchDiag() {
+    $('err').classList.add('hide');
+    fetch(API + '/diag', { cache: 'no-store' })
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function (d) {
+        last = d;
+        $('d-http').className = 'dot ok';
+        $('v-http').textContent = '正常 · v' + (d.version || '?');
+        $('d-db').className = 'dot ' + (d.db > 0 ? 'ok' : 'bad');
+        $('v-db').textContent = (d.db || 0) + ' 首';
+        $('d-req').className = 'dot ' + (d.requests ? 'ok' : 'warn');
+        $('v-req').textContent = d.requests ? '已开启' : '关闭（可点“切换点歌板”）';
+        $('d-dm').className = 'dot ' + (d.danmaku_running ? 'ok' : 'warn');
+        $('v-dm').textContent = d.danmaku_running
+          ? '已连接' + (d.room ? ' · room ' + d.room : '')
+          : '未连接（检查 [danmaku] enabled / room_id）';
+        $('d-auth').className = 'dot ' + (d.logged_in ? 'ok' : 'bad');
+        $('v-auth').textContent = d.logged_in
+          ? '已登录' + (d.uid ? ' · UID ' + d.uid : '')
+          : '未登录（本机打开登录页）';
+        $('d-send').className = 'dot ' + (d.send_enabled ? 'ok' : 'warn');
+        $('v-send').textContent = d.send_enabled ? '已开启' : '关闭（[danmaku] allow_send=1）';
+        $('d-alias').className = 'dot ' + (d.aliases > 0 ? 'ok' : 'warn');
+        $('v-alias').textContent = d.aliases > 0
+          ? d.aliases + ' 条'
+          : '没有别名（在线拉取失败或未导入）';
+        $('v-room').textContent = d.room ? String(d.room) : '未解析（弹幕未连接）';
+        $('btn-toggle').disabled = false;
+      })
+      .catch(function (e) {
+        $('err').classList.remove('hide');
+        $('errmsg').textContent = String(e.message || e) + '。请确认游戏已启动，且 ASI 已加载。';
+        $('d-http').className = 'dot bad';
+        $('v-http').textContent = '无法连接';
+      });
+  }
+
+  function refreshAddresses() {
+    var main = location.protocol + '//' + location.host + '/';
+    var chat = location.protocol + '//' + location.host + '/chat.html';
+    $('cur-url').textContent = main;
+    $('obs-main').textContent = main;
+    $('obs-chat').textContent = chat;
+    $('phone-url').textContent = location.hostname === '127.0.0.1' || location.hostname === 'localhost'
+      ? '请用电脑局域网 IP 访问，例如 http://192.168.x.x:8770/'
+      : main;
+  }
+
+  $('btn-refresh').addEventListener('click', fetchDiag);
+  $('btn-toggle').addEventListener('click', function () {
+    $('btn-toggle').disabled = true;
+    fetch(API + '/songrequest/toggle', { method: 'POST' })
+      .then(function () { setTimeout(fetchDiag, 250); })
+      .catch(function () { $('btn-toggle').disabled = false; });
+  });
+  $('btn-copy-obs').addEventListener('click', function () {
+    var text = location.protocol + '//' + location.host + '/';
+    if (navigator.clipboard) navigator.clipboard.writeText(text);
+    $('btn-copy-obs').textContent = '已复制';
+    setTimeout(function () { $('btn-copy-obs').textContent = '复制主叠加层地址'; }, 1200);
+  });
+
+  refreshAddresses();
+  fetchDiag();
+  setInterval(fetchDiag, 3000);
+})();
+</script>
+</body>
+</html>

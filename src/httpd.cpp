@@ -150,10 +150,12 @@ bool HttpServer::Start(uint16_t port, const std::string& host, const std::string
     sockaddr_in a{};
     a.sin_family = AF_INET;
     a.sin_addr.s_addr = inet_addr(host.c_str());
-    a.sin_port = htons(port);
-    if (a.sin_addr.s_addr == INADDR_NONE || a.sin_addr.s_addr == INADDR_ANY) {
+    if (host == "0.0.0.0" || host == "*" || host.empty()) {
+        a.sin_addr.s_addr = htonl(INADDR_ANY);
+    } else if (a.sin_addr.s_addr == INADDR_NONE) {
         a.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     }
+    a.sin_port = htons(port);
     if (bind(listen_, (sockaddr*)&a, sizeof(a)) == SOCKET_ERROR) {
         L().Info("http: bind %s:%u failed (err %d)", host.c_str(), port, WSAGetLastError());
         closesocket(listen_);
@@ -236,8 +238,28 @@ bool HttpServer::ReadRequest(SOCKET s, std::string& out) {
     return false;
 }
 
-void HttpServer::ServeResponse(SOCKET s, const std::string& path) {
+void HttpServer::ServeResponse(SOCKET s, const std::string& path, const std::string& method) {
     App& app = App::Get();
+    // 登录 / 调试 / 布局接口只允许本机访问；局域网仅开放叠加层与点歌交互
+    bool localPeer = true;
+    sockaddr_in peer{};
+    int peerLen = sizeof(peer);
+    if (getpeername(s, (sockaddr*)&peer, &peerLen) == 0)
+        localPeer = (peer.sin_addr.s_addr == htonl(INADDR_LOOPBACK));
+    if (!localPeer &&
+        (path.rfind("/bili/", 0) == 0 || path == "/login.html" ||
+         path.rfind("/debug", 0) == 0 || path.rfind("/layout", 0) == 0 ||
+         path.rfind("/diag", 0) == 0)) {
+        const char* body = "{\"ok\":false,\"error\":\"local only\"}";
+        char hdr[160];
+        snprintf(hdr, sizeof(hdr),
+                 "HTTP/1.1 403 Forbidden\r\nContent-Type: application/json\r\n"
+                 "Access-Control-Allow-Origin: *\r\nContent-Length: %zu\r\n"
+                 "Connection: close\r\n\r\n", strlen(body));
+        SendAll(s, hdr, strlen(hdr));
+        SendAll(s, body, strlen(body));
+        return;
+    }
     if (path == "/state" || path == "/state/") {
         std::string body = app.BuildStateJson(true);
         char cl[64];
@@ -249,6 +271,23 @@ void HttpServer::ServeResponse(SOCKET s, const std::string& path) {
     }
     if (path == "/health" || path == "/health/") {
         std::string body = app.BuildHealthJson();
+        char cl[64];
+        snprintf(cl, sizeof(cl), "Content-Length: %zu\r\nConnection: close\r\n\r\n", body.size());
+        SendAll(s, kHdrJson, strlen(kHdrJson));
+        SendAll(s, cl, strlen(cl));
+        SendAll(s, body.data(), body.size());
+        return;
+    }
+    if (path.rfind("/diag", 0) == 0) {
+        std::string body = "{\"ok\":true,\"version\":\"" + app.version +
+            "\",\"requests\":" + (app.request_enabled.load() ? "true" : "false") +
+            ",\"danmaku_running\":" + (bili::Running() ? "true" : "false") +
+            ",\"send_enabled\":" + (bili::SendEnabled().load() ? "true" : "false") +
+            ",\"room\":" + std::to_string(bili::CurrentRoomId()) +
+            ",\"logged_in\":" + (bili::HasAuth() ? "true" : "false") +
+            ",\"uid\":" + std::to_string(bili::CurrentUid()) +
+            ",\"db\":" + std::to_string(app.db.size()) +
+            ",\"aliases\":" + std::to_string(app.db.AliasCount()) + "}";
         char cl[64];
         snprintf(cl, sizeof(cl), "Content-Length: %zu\r\nConnection: close\r\n\r\n", body.size());
         SendAll(s, kHdrJson, strlen(kHdrJson));
@@ -303,6 +342,36 @@ void HttpServer::ServeResponse(SOCKET s, const std::string& path) {
         size_t dot = id.find('.');
         if (dot != std::string::npos) id = id.substr(0, dot);
         ServeJacket(s, id);
+        return;
+    }
+
+    // 发送弹幕：POST /chat/send?msg=...
+    if (method == "POST" && path.rfind("/chat/send", 0) == 0) {
+        std::string msg = QueryParam(path, "msg");
+        bool ok = false;
+        std::string err;
+        if (msg.empty()) {
+            err = "内容为空";
+        } else {
+            size_t chars = 0;
+            for (size_t i = 0; i < msg.size(); ++i) {
+                unsigned char c = (unsigned char)msg[i];
+                if ((c & 0xC0) != 0x80) ++chars;
+            }
+            if (chars > 20) {
+                err = "最多 20 个字";
+            } else {
+                ok = bili::SendDanmaku(msg, err);
+            }
+        }
+        std::string body = ok ? "{\"ok\":true}"
+                              : ("{\"ok\":false,\"error\":\"" + err + "\"}");
+        std::string hdr = std::string(kHdrJson);
+        char cl[80];
+        snprintf(cl, sizeof(cl), "Content-Length: %zu\r\nConnection: close\r\n\r\n", body.size());
+        hdr += cl;
+        SendAll(s, hdr.c_str(), hdr.size());
+        SendAll(s, body.c_str(), body.size());
         return;
     }
 
@@ -596,12 +665,43 @@ void HttpServer::ClientLoop(SOCKET s) {
         } else if (path.rfind("/queue/remove", 0) == 0) {
             uint64_t id = (uint64_t)strtoull(QueryParam(path, "id").c_str(), nullptr, 10);
             ok = app.RemoveRequest(id);
+        } else if (path.rfind("/queue/move", 0) == 0) {
+            uint64_t id = (uint64_t)strtoull(QueryParam(path, "id").c_str(), nullptr, 10);
+            int to = atoi(QueryParam(path, "to").c_str());
+            ok = app.MoveRequest(id, to);
         } else if (path.rfind("/queue/add", 0) == 0) {
             std::string title = QueryParam(path, "title");
             if (title.empty()) title = QueryParam(path, "q");
             std::string user = QueryParam(path, "user");
             std::string st = app.AddSongRequest(user.empty() ? "manual" : user, 0, title);
             ok = (st == "added" || st == "duplicate");
+        }
+        const char* resp = ok
+            ? "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+              "Access-Control-Allow-Origin: *\r\nContent-Length: 11\r\n"
+              "Connection: close\r\n\r\n{\"ok\":true}"
+            : "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+              "Access-Control-Allow-Origin: *\r\nContent-Length: 12\r\n"
+              "Connection: close\r\n\r\n{\"ok\":false}";
+        SendAll(s, resp, strlen(resp));
+        closesocket(s);
+        return;
+    }
+
+    // 候选选择：POST /pending/move?from=0&to=1 | /pending/remove?index=0
+    if (method == "POST" && path.rfind("/pending/", 0) == 0) {
+        App& app = App::Get();
+        bool ok = false;
+        if (path.rfind("/pending/move", 0) == 0) {
+            int from = atoi(QueryParam(path, "from").c_str());
+            int to = atoi(QueryParam(path, "to").c_str());
+            ok = app.MovePendingCandidate(from, to);
+        } else if (path.rfind("/pending/remove", 0) == 0) {
+            int index = atoi(QueryParam(path, "index").c_str());
+            ok = app.RemovePendingCandidate(index);
+        } else if (path.rfind("/pending/choose", 0) == 0) {
+            int index = atoi(QueryParam(path, "index").c_str());
+            ok = app.ChoosePendingCandidate(index);
         }
         const char* resp = ok
             ? "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
@@ -713,7 +813,8 @@ void HttpServer::ClientLoop(SOCKET s) {
         return;
     }
 
-    if (method != "GET" && method != "HEAD") {
+    if (method != "GET" && method != "HEAD" &&
+        !(method == "POST" && path.rfind("/chat/send", 0) == 0)) {
         SendAll(s, kHdr404, strlen(kHdr404));
         closesocket(s);
         return;
@@ -722,7 +823,7 @@ void HttpServer::ClientLoop(SOCKET s) {
         ServeSse(s);
         return;
     }
-    ServeResponse(s, path);
+    ServeResponse(s, path, method);
     closesocket(s);
 }
 
