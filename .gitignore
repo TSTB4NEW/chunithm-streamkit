@@ -31,3 +31,6 @@ archive/release-1.0.3/
 
 # ---- internal notes ----
 HANDOFF.md
+
+# ---- internal handoff ----
+HANDOFF*.md

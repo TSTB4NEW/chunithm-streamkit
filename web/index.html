@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d14">
+<link rel="manifest" href="/manifest.json">
 <title>CHUNITHM StreamKit Overlay</title>
 <style>
   :root {
@@ -64,6 +66,8 @@
     width: 100%;
     max-width: 100%;
     margin: 0;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
   }
   html.mobile #stack { width: 100%; border-radius: 10px; }
   html.mobile #panel { padding: 10px 12px 14px; }
@@ -80,11 +84,18 @@
   html.mobile .playonly .flrow,
   html.mobile .playonly .feedrow { display: none; }
 
+  @media (orientation: landscape) and (max-height: 520px) {
+    html.mobile #panel { padding: 6px 10px 8px; }
+    html.mobile .song { margin-top: 6px; gap: 8px; }
+    html.mobile .title { font-size: 18px; }
+    html.mobile .mc-list { max-height: 96px; }
+  }
+
   .mobileChat { display: none; }
   html.mobile .mobileChat {
     display: block;
     border-top: 1px solid rgba(255,255,255,.08);
-    padding: 8px 12px 12px;
+    padding: 8px 12px calc(12px + env(safe-area-inset-bottom));
     background: rgba(255,255,255,.02);
   }
   .mc-head {
@@ -1731,6 +1742,11 @@
   if (mcSendEl) mcSendEl.addEventListener('click', sendChat);
   if (mcInputEl) mcInputEl.addEventListener('keydown', function (e) {
     if (e.key === 'Enter') { e.preventDefault(); sendChat(); }
+  });
+  if (mcInputEl) mcInputEl.addEventListener('focus', function () {
+    setTimeout(function () {
+      try { mcInputEl.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {}
+    }, 220);
   });
 
   function queueSignature(items) {

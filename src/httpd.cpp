@@ -116,6 +116,109 @@ static std::string UrlDecode(const std::string& s) {
     return out;
 }
 
+static std::string IniTrim(const std::string& s) {
+    size_t a = 0, b = s.size();
+    while (a < b && (s[a] == ' ' || s[a] == '\t' || s[a] == '\r')) ++a;
+    while (b > a && (s[b - 1] == ' ' || s[b - 1] == '\t' || s[b - 1] == '\r')) --b;
+    return s.substr(a, b - a);
+}
+
+static std::vector<std::string> IniLines(const std::string& text) {
+    std::vector<std::string> lines;
+    size_t start = 0;
+    while (start <= text.size()) {
+        size_t e = text.find('\n', start);
+        if (e == std::string::npos) e = text.size();
+        std::string line = text.substr(start, e - start);
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        lines.push_back(line);
+        if (e == text.size()) break;
+        start = e + 1;
+    }
+    return lines;
+}
+
+static std::string IniGet(const std::string& text, const std::string& section, const std::string& key) {
+    auto lines = IniLines(text);
+    bool in = false;
+    for (const auto& raw : lines) {
+        std::string line = IniTrim(raw);
+        if (line.size() >= 2 && line.front() == '[' && line.back() == ']') {
+            in = (line.substr(1, line.size() - 2) == section);
+            continue;
+        }
+        if (!in || line.empty() || line[0] == ';' || line[0] == '#') continue;
+        size_t eq = line.find('=');
+        if (eq == std::string::npos) continue;
+        if (IniTrim(line.substr(0, eq)) == key) return IniTrim(line.substr(eq + 1));
+    }
+    return "";
+}
+
+static void IniSet(std::string& text, const std::string& section, const std::string& key,
+                   const std::string& value) {
+    auto lines = IniLines(text);
+    size_t sec = std::string::npos, end = lines.size();
+    for (size_t i = 0; i < lines.size(); ++i) {
+        std::string line = IniTrim(lines[i]);
+        if (line.size() >= 2 && line.front() == '[' && line.back() == ']') {
+            if (sec == std::string::npos && line.substr(1, line.size() - 2) == section) {
+                sec = i;
+            } else if (sec != std::string::npos) {
+                end = i;
+                break;
+            }
+        }
+    }
+    if (sec == std::string::npos) {
+        if (!lines.empty() && !lines.back().empty()) lines.push_back("");
+        lines.push_back("[" + section + "]");
+        lines.push_back(key + "=" + value);
+    } else {
+        size_t found = std::string::npos;
+        for (size_t i = sec + 1; i < end; ++i) {
+            std::string line = IniTrim(lines[i]);
+            if (line.empty() || line[0] == ';' || line[0] == '#') continue;
+            size_t eq = line.find('=');
+            if (eq != std::string::npos && IniTrim(line.substr(0, eq)) == key) {
+                found = i;
+                break;
+            }
+        }
+        if (found != std::string::npos) lines[found] = key + "=" + value;
+        else lines.insert(lines.begin() + (std::ptrdiff_t)end, key + "=" + value);
+    }
+    text.clear();
+    for (size_t i = 0; i < lines.size(); ++i) {
+        if (i) text += "\n";
+        text += lines[i];
+    }
+    text += "\n";
+}
+
+static bool ReadTextFile(const std::string& path, std::string& out) {
+    FILE* f = fopen(path.c_str(), "rb");
+    if (!f) return false;
+    fseek(f, 0, SEEK_END);
+    long n = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    if (n < 0 || n > (1 << 20)) { fclose(f); return false; }
+    out.resize((size_t)n);
+    if (n > 0 && fread(&out[0], 1, (size_t)n, f) != (size_t)n) out.clear();
+    fclose(f);
+    return true;
+}
+
+static bool WriteTextAtomic(const std::string& path, const std::string& text) {
+    std::string tmp = path + ".tmp";
+    FILE* f = fopen(tmp.c_str(), "wb");
+    if (!f) return false;
+    bool ok = fwrite(text.data(), 1, text.size(), f) == text.size();
+    fclose(f);
+    if (!ok) { DeleteFileA(tmp.c_str()); return false; }
+    return MoveFileExA(tmp.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING) != 0;
+}
+
 static std::string QueryParam(const std::string& path, const char* key) {
     size_t q = path.find('?');
     if (q == std::string::npos) return "";
@@ -249,7 +352,7 @@ void HttpServer::ServeResponse(SOCKET s, const std::string& path, const std::str
     if (!localPeer &&
         (path.rfind("/bili/", 0) == 0 || path == "/login.html" ||
          path.rfind("/debug", 0) == 0 || path.rfind("/layout", 0) == 0 ||
-         path.rfind("/diag", 0) == 0)) {
+         path.rfind("/diag", 0) == 0 || path.rfind("/config", 0) == 0)) {
         const char* body = "{\"ok\":false,\"error\":\"local only\"}";
         char hdr[160];
         snprintf(hdr, sizeof(hdr),
@@ -295,6 +398,72 @@ void HttpServer::ServeResponse(SOCKET s, const std::string& path, const std::str
         SendAll(s, body.data(), body.size());
         return;
     }
+    if (path.rfind("/config", 0) == 0 && method != "POST") {
+        std::string text, host, port, dm, room, send, req;
+        if (ReadTextFile(app.config_path, text)) {
+            host = IniGet(text, "server", "host");
+            port = IniGet(text, "server", "port");
+            dm = IniGet(text, "danmaku", "enabled");
+            room = IniGet(text, "danmaku", "room_id");
+            send = IniGet(text, "danmaku", "allow_send");
+            req = IniGet(text, "songrequest", "enabled");
+        }
+        std::string body = "{\"ok\":true,\"host\":\"" + host +
+            "\",\"port\":" + (port.empty() ? "8770" : port) +
+            ",\"danmaku\":" + (dm == "1" ? "true" : "false") +
+            ",\"room\":\"" + room + "\"" +
+            ",\"send\":" + (send == "1" ? "true" : "false") +
+            ",\"requests\":" + (req == "1" ? "true" : "false") + "}";
+        char cl[64];
+        snprintf(cl, sizeof(cl), "Content-Length: %zu\r\nConnection: close\r\n\r\n", body.size());
+        SendAll(s, kHdrJson, strlen(kHdrJson));
+        SendAll(s, cl, strlen(cl));
+        SendAll(s, body.data(), body.size());
+        return;
+    }
+    if (path.rfind("/config/save", 0) == 0 && method == "POST") {
+        std::string host = QueryParam(path, "host");
+        std::string portS = QueryParam(path, "port");
+        std::string dm = QueryParam(path, "danmaku");
+        std::string room = QueryParam(path, "room");
+        std::string send = QueryParam(path, "send");
+        std::string req = QueryParam(path, "requests");
+        int port = atoi(portS.c_str());
+        bool ok = !app.config_path.empty() && !host.empty() && port >= 1 && port <= 65535 &&
+                  inet_addr(host.c_str()) != INADDR_NONE &&
+                  (dm == "0" || dm == "1") && (send == "0" || send == "1") &&
+                  (req == "0" || req == "1");
+        std::string err;
+        if (!ok) err = "参数不合法";
+        if (ok) {
+            std::string text;
+            if (!ReadTextFile(app.config_path, text)) {
+                ok = false;
+                err = "读取 ini 失败";
+            } else {
+                IniSet(text, "server", "host", host);
+                IniSet(text, "server", "port", std::to_string(port));
+                IniSet(text, "danmaku", "enabled", dm);
+                IniSet(text, "danmaku", "room_id", room);
+                IniSet(text, "danmaku", "allow_send", send);
+                IniSet(text, "songrequest", "enabled", req);
+                if (!WriteTextAtomic(app.config_path, text)) {
+                    ok = false;
+                    err = "写入 ini 失败";
+                } else {
+                    L().Info("config saved from setup page");
+                }
+            }
+        }
+        std::string body = ok ? "{\"ok\":true}" : ("{\"ok\":false,\"error\":\"" + err + "\"}");
+        char cl[80];
+        snprintf(cl, sizeof(cl), "Content-Length: %zu\r\nConnection: close\r\n\r\n", body.size());
+        SendAll(s, kHdrJson, strlen(kHdrJson));
+        SendAll(s, cl, strlen(cl));
+        SendAll(s, body.data(), body.size());
+        return;
+    }
+
     if (path == "/debug" || path == "/debug/") {
         std::string body =
             "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>csk debug</title></head>"
@@ -814,7 +983,8 @@ void HttpServer::ClientLoop(SOCKET s) {
     }
 
     if (method != "GET" && method != "HEAD" &&
-        !(method == "POST" && path.rfind("/chat/send", 0) == 0)) {
+        !(method == "POST" &&
+          (path.rfind("/chat/send", 0) == 0 || path.rfind("/config/save", 0) == 0))) {
         SendAll(s, kHdr404, strlen(kHdr404));
         closesocket(s);
         return;

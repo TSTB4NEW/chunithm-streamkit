@@ -32,6 +32,16 @@
   code { color:#ffcf3a; }
   a { color:#9fc3ff; }
   .hide { display:none; }
+  .field { display:flex; align-items:center; gap:8px; margin:7px 0; font-size:12px; }
+  .field label { flex:0 0 92px; color:var(--dim); }
+  .field input[type=text], .field input[type=number], .field select {
+    flex:1 1 auto; min-width:0; height:30px; padding:0 8px;
+    border:1px solid var(--line); border-radius:6px;
+    background:#080a10; color:var(--fg); font-family:inherit; font-size:12px;
+  }
+  .field input[type=checkbox] { width:16px; height:16px; accent-color:#ffcf3a; }
+  .cfgmsg { margin-left:4px; font-size:11px; color:var(--ok); }
+  .cfgmsg.err { color:var(--bad); }
 </style>
 </head>
 <body>
@@ -84,7 +94,27 @@
   </div>
 
   <div class="card">
-    <h2>启用模块</h2>
+    <h2>配置向导</h2>
+    <div class="field"><label>监听地址</label>
+      <select id="cfgHost">
+        <option value="127.0.0.1">127.0.0.1（仅本机）</option>
+        <option value="0.0.0.0">0.0.0.0（局域网）</option>
+      </select>
+    </div>
+    <div class="field"><label>端口</label><input id="cfgPort" type="number" min="1" max="65535" value="8770"></div>
+    <div class="field"><label>弹幕模块</label><input id="cfgDm" type="checkbox"><span style="color:#8a93aa">接收弹幕</span></div>
+    <div class="field"><label>直播间号</label><input id="cfgRoom" type="text" placeholder="直播间号或 UID"></div>
+    <div class="field"><label>网页发送</label><input id="cfgSend" type="checkbox"><span style="color:#8a93aa">允许手机发弹幕</span></div>
+    <div class="field"><label>点歌板</label><input id="cfgReq" type="checkbox"><span style="color:#8a93aa">接收点歌指令</span></div>
+    <div class="buttons">
+      <button id="cfgSave">保存到 ini</button>
+      <span id="cfgMsg" class="cfgmsg"></span>
+    </div>
+    <div style="font-size:11px;color:#8a93aa;margin-top:4px">保存后需要重启游戏才会生效。</div>
+  </div>
+
+  <div class="card">
+    <h2>配置示例</h2>
     <pre>[server]
 host=0.0.0.0
 port=8770
@@ -97,7 +127,7 @@ allow_send=1
 
 [songrequest]
 enabled=1</pre>
-    <div style="font-size:11px;color:#8a93aa;margin-top:6px">改完 ini 需要重启游戏。</div>
+    <div style="font-size:11px;color:#8a93aa;margin-top:6px">也可以直接在 ini 里修改。</div>
   </div>
 </div>
 
@@ -165,6 +195,61 @@ enabled=1</pre>
       : main;
   }
 
+  function loadConfig() {
+    fetch(API + '/config', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d || !d.ok) return;
+        var sel = $('cfgHost');
+        var found = false;
+        for (var i = 0; i < sel.options.length; ++i) {
+          if (sel.options[i].value === d.host) { found = true; break; }
+        }
+        if (!found && d.host) {
+          var op = document.createElement('option');
+          op.value = d.host;
+          op.textContent = d.host;
+          sel.appendChild(op);
+        }
+        sel.value = d.host || '127.0.0.1';
+        $('cfgPort').value = d.port || 8770;
+        $('cfgDm').checked = !!d.danmaku;
+        $('cfgRoom').value = d.room || '';
+        $('cfgSend').checked = !!d.send;
+        $('cfgReq').checked = !!d.requests;
+      })
+      .catch(function () {});
+  }
+
+  function saveConfig() {
+    var msg = $('cfgMsg');
+    msg.className = 'cfgmsg';
+    msg.textContent = '保存中…';
+    var p = new URLSearchParams();
+    p.set('host', $('cfgHost').value);
+    p.set('port', $('cfgPort').value);
+    p.set('danmaku', $('cfgDm').checked ? '1' : '0');
+    p.set('room', $('cfgRoom').value.trim());
+    p.set('send', $('cfgSend').checked ? '1' : '0');
+    p.set('requests', $('cfgReq').checked ? '1' : '0');
+    fetch(API + '/config/save?' + p.toString(), { method: 'POST' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d && d.ok) {
+          msg.textContent = '已保存，重启游戏生效';
+          loadConfig();
+          fetchDiag();
+        } else {
+          msg.className = 'cfgmsg err';
+          msg.textContent = (d && d.error) || '保存失败';
+        }
+      })
+      .catch(function () {
+        msg.className = 'cfgmsg err';
+        msg.textContent = '网络错误';
+      });
+  }
+
   $('btn-refresh').addEventListener('click', fetchDiag);
   $('btn-toggle').addEventListener('click', function () {
     $('btn-toggle').disabled = true;
@@ -178,8 +263,10 @@ enabled=1</pre>
     $('btn-copy-obs').textContent = '已复制';
     setTimeout(function () { $('btn-copy-obs').textContent = '复制主叠加层地址'; }, 1200);
   });
+  $('cfgSave').addEventListener('click', saveConfig);
 
   refreshAddresses();
+  loadConfig();
   fetchDiag();
   setInterval(fetchDiag, 3000);
 })();

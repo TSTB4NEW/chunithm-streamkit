@@ -19,8 +19,9 @@ public:
     Snapshot snap;
     SongDb db;
     Profile profile;
-    std::string version = "1.0.4";
+    std::string version = "1.0.6";
     std::string web_root;
+    std::string config_path;
     bool demo = false;
     // 演示模式使用的临时歌曲表（与 db 同锁保护）
     std::unordered_map<uint32_t, SongInfo> demoSongs;

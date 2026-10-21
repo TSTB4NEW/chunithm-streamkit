@@ -144,7 +144,7 @@ static void DemoThread() {
 static void WorkerThread() {
     BootTrace("worker start");
     App& app = App::Get();
-    app.version = "1.0.5";
+    app.version = "0.1.0";
     std::string dllDir = DllDir();
     std::string dataDir = DataDirOf(dllDir);   // <bin>\chunithm_streamkit
     BootTrace(("dllDir=" + dllDir).c_str());
@@ -163,6 +163,7 @@ static void WorkerThread() {
     L().Init(logFile, logLevel);
     L().Info("chunithm-streamkit %s starting (ini=%s)", app.version.c_str(),
              iniPath.empty() ? "(none)" : iniPath.c_str());
+    app.config_path = iniPath;
 
     if (ini.Get("general", "enabled", "1") == "0") {
         L().Info("plugin disabled by [general] enabled=0");
