@@ -1,6 +1,6 @@
 # chunithm-streamkit
 
-CHUNITHM MATE 2.50（`chusanApp.exe`, 32 位）的**只读**直播数据插件。
+CHUNITHM的**只读**直播数据插件。
 通过 OBS 浏览器源显示判定数量、分数、连击、曲目信息与封面。
 
 > **只读原则**：插件只做内存读取与 inline hook 取值，不写入游戏内存、不修改判定逻辑、
