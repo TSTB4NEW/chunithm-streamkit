@@ -33,6 +33,7 @@ struct FieldSpec {
     std::vector<uint8_t> marker;    // 校验标记字节
     uintptr_t min_addr = 0x50000000;
     bool pick_highest = true;
+    uintptr_t post_add = 0;         // 解析成功后叠加的偏移（数组基址 + 索引）
     std::string type = "i32";       // i8/u8/i16/u16/i32/u32/i64/u64/f32
     std::string pattern;            // 结构特征扫描：pair1f / song / song_diff
     uint32_t shift = 0;             // 读到的值右移位数
@@ -96,6 +97,7 @@ public:
             f.min_addr = sec.count(key + ".min_addr") ? parse_hex(sec.at(key + ".min_addr")) : 0x50000000;
             f.pick_highest = parse_i32(sec.count(key + ".pick_highest") ? sec.at(key + ".pick_highest") : "1") != 0;
             f.pattern = sec.count(key + ".pattern") ? sec.at(key + ".pattern") : "";
+            f.post_add = parse_hex(sec.count(key + ".addr_add") ? sec.at(key + ".addr_add") : "");
             f.shift = (uint32_t)parse_u64(sec.count(key + ".shift") ? sec.at(key + ".shift") : "0");
             f.use_hook = parse_i32(sec.count(key + ".hook") ? sec.at(key + ".hook") : "0") != 0;
         };
@@ -120,6 +122,8 @@ public:
         loadField(*sec, "fast_attack", fields_[F_FAST_AT]);
         loadField(*sec, "late_attack", fields_[F_LATE_AT]);
         loadField(*sec, "note_total", fields_[F_NOTE_TOTAL]);
+        // 游玩状态：进入谱面即置位（早于第一个判定）
+        loadField(*sec, "play_state", fields_[F_PLAY]);
 
         // 判定事件环形缓冲（可选；不配置时回退到计数器差值）
         const Ini::Section* ring = ini.GetSection(sectionName + ".ring");
@@ -168,6 +172,7 @@ public:
                 f.ok = ResolveChain(base, f.chain, f.addr);
             }
             if (f.ok && f.addr) {
+                f.addr += f.post_add;   // 例如：特征码抓到数组基址 → 加索引偏移
                 ++resolved_;
                 L().Debug("profile: %s -> %p", f.name.c_str(), (void*)f.addr);
             } else {
@@ -283,6 +288,14 @@ public:
         } else {
             ReadField(fields_[F_DIFFICULTY], difficulty);
         }
+        uint32_t maxScoreHook = 0;
+        if (hook::MaxScoreInstalled()) maxScoreHook = hook::MaxScore();
+        // 历史最佳：换曲清空，捕获到非 0 值就粘住（进游玩后游戏会写 0）
+        if (hook::BestScoreInstalled()) {
+            uint32_t bs = hook::BestScore();
+            if (musicId != best_music_id_) { best_music_id_ = musicId; best_sticky_ = 0; }
+            if (bs > 0 && bs <= 1010000) best_sticky_ = bs;
+        }
         if (fields_[F_SCORE].use_hook && hook::Installed()) score = hook::Score();
         else ReadField(fields_[F_SCORE], score);
         if (fields_[F_COMBO].use_hook && hook::ComboInstalled()) combo = hook::Combo();
@@ -342,6 +355,7 @@ public:
             combo_max_ = 0;
             ring_head_valid_ = false;
             if (fields_[F_SCORE].use_hook) hook::Reset();
+            hook::ResetMaxScore();
             if (fields_[F_COMBO].use_hook || fields_[F_MAX_COMBO].use_hook) hook::ResetCombo();
             if (fields_[F_SCORE].use_hook) score = hook::Score();
             if (fields_[F_COMBO].use_hook || fields_[F_MAX_COMBO].use_hook) {
@@ -349,7 +363,13 @@ public:
                 maxCombo = hook::Combo();
             }
         }
-        bool inGame = judgePlaying || score > 0;
+        // 游玩状态：游戏在进入谱面时把统计计数器[37] 置 1（远早于第一个判定）。
+        // 由特征码定位计数器表基址，addr_add 加上索引偏移 —— 不依赖写死的绝对地址。
+        uint32_t playFlag = 0;
+        ReadField(fields_[F_PLAY], playFlag);
+        bool playActive = fields_[F_PLAY].ok && playFlag != 0;
+
+        bool inGame = judgePlaying || score > 0 || playActive;
         // 事件来源决策：ring 模式（且 ring 可用）时不发计数器差值，避免重复
         bool useRingEvents = ring_.ok && event_source_ != "counter";
         if (inGame && judgePlaying) {
@@ -369,6 +389,9 @@ public:
         snap.fast_jc = fastJC; snap.late_jc = lateJC;
         snap.fast_at = fastAT; snap.late_at = lateAT;
         snap.score = score;
+        // 只接受合理范围，避免 hook 抓到别的结构体字段
+        snap.max_score = (maxScoreHook >= score && maxScoreHook <= 1010000) ? maxScoreHook : 0;
+        snap.best_score = best_sticky_;
         snap.combo = combo_;
         snap.max_combo = (maxCombo > combo_max_) ? maxCombo : combo_max_;
         snap.note_total = noteTotal;
@@ -396,7 +419,7 @@ private:
         F_MUSIC_ID = 0, F_DIFFICULTY, F_SCORE, F_COMBO, F_MAX_COMBO,
         F_JC, F_JU, F_AT, F_MI, F_NOTE_TOTAL,
         F_FAST, F_LATE, F_FAST_JC, F_LATE_JC, F_FAST_AT, F_LATE_AT,
-        F_COUNT
+        F_COUNT, F_PLAY = F_COUNT
     };
 
     struct CounterSet {
@@ -544,7 +567,7 @@ private:
         // 忽略 seq 偏移（head 方式已够）；use_seq 留作扩展
     }
 
-    std::array<FieldSpec, F_COUNT> fields_{};
+    std::array<FieldSpec, F_COUNT + 1> fields_{};
     RingSpec ring_;
     std::string event_source_ = "auto";
     std::string profile_name_;
@@ -555,6 +578,8 @@ private:
     uint32_t combo_max_ = 0;   // 推断出的最大 combo
     uint32_t scan_diff_ = 0;   // 结构扫描得到的当前难度
     bool scan_diff_valid_ = false;
+    uint32_t best_music_id_ = 0;
+    uint32_t best_sticky_ = 0;
     bool had_game_ = false;
     uint32_t last_head_ = 0;
     bool ring_head_valid_ = false;

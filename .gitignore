@@ -34,3 +34,11 @@ HANDOFF.md
 
 # ---- internal handoff ----
 HANDOFF*.md
+
+# ---- tooling / editor temp ----
+__pycache__/
+*.pyc
+.tmp_*/
+.tmp_*
+.dsh-ops-update-*.lock
+*.lock

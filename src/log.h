@@ -6,8 +6,14 @@
 #include <cstdarg>
 #include <string>
 #include <mutex>
+#include <atomic>
 
 namespace csk {
+
+// 加载器锁 / DllMain 阶段禁止文件 I/O：
+// chusanhook(capnhook) 的 iohook 在初始化完成前拦截文件 API 会触发断言，
+// 所以早期日志先缓冲在内存，等工作线程起来后再落盘。
+inline std::atomic<bool>& IoReady() { static std::atomic<bool> f{false}; return f; }
 
 class Logger {
 public:

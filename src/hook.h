@@ -10,6 +10,9 @@
 namespace csk {
 namespace hook {
 
+// 把 DllMain 期间缓冲的 hook 日志落盘（工作线程在 IoReady 之后调用）
+void FlushEarlyLog();
+
 // 安装 hook；返回是否成功。失败时插件照常运行（只是分数不可用）。
 bool Install();
 
@@ -52,6 +55,24 @@ constexpr uintptr_t kDiffWriteRva = 0x8B76CF;
 
 // hook 目标
 constexpr uintptr_t kScoreWriteRva = 0x7B2E5B;
+
+// —— 选歌界面历史最佳分数 hook ——
+// chusanApp.exe + 0x6E09D9:  89 91 4C 02 00 00   mov [ecx+0x24C], edx
+// edx = 该谱面历史最佳分数（选歌界面写入，进游玩会被清 0）
+bool InstallBestScore();
+bool BestScoreInstalled();
+uint32_t BestScore();
+void ResetBestScore();
+constexpr uintptr_t kBestScoreWriteRva = 0x6E09D9;
+
+// —— 理论最高分 hook ——
+// chusanApp.exe + 0x96A427:  89 81 8C 01 00 00   mov [rcx+0x18C], eax
+// eax = 本局理论最高分（剩余音符全 JC 时的最终分数）
+bool InstallMaxScore();
+bool MaxScoreInstalled();
+uint32_t MaxScore();
+void ResetMaxScore();
+constexpr uintptr_t kMaxScoreWriteRva = 0x96A427;
 
 // —— FAST / LATE 计数 hook ——
 // chusanApp.exe + 0x7B2E1D:  mov [edx+0x58], ecx ; mov ecx, esi（共 5 字节）

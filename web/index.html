@@ -29,6 +29,12 @@
     zoom: var(--ui-scale);
   }
 
+  /* OBS 源：不做缩放适配，按 1:1 像素渲染（避免整页 zoom 导致贴图发虚） */
+  html.skin-game body { --panel-w: 570px; --ui-scale: 1; }
+  /* 给骑在卡片边缘上的品牌留出溢出空间 */
+  html.skin-game body { padding-top: 84px; }
+  html.skin-game .jcell { width: 268px; height: 39px; background-size: 268px 39px; }
+  html.skin-game .judges { gap: 4px 8px; }
   #stack {
     position: relative;
     background: var(--bg);
@@ -80,9 +86,6 @@
   html.mobile .qslot.expanded .qd { font-size: 12px; }
   html.mobile .qslot.expanded .qexp .er { font-size: 9px; }
   html.mobile #tip { max-width: 200px; }
-  html.mobile .playonly .judges,
-  html.mobile .playonly .flrow,
-  html.mobile .playonly .feedrow { display: none; }
 
   @media (orientation: landscape) and (max-height: 520px) {
     html.mobile #panel { padding: 6px 10px 8px; }
@@ -123,7 +126,7 @@
     background: rgba(255,255,255,.10); color: #eef2ff;
     font-size: 11px; font-weight: 700; font-family: inherit; cursor: pointer;
   }
-  .mc-send button:disabled { opacity: .45; }
+  .mc-send button:disabled { opacity: 0.50; }
   .mc-status { min-height: 12px; margin-top: 3px; font-size: 9px; color: #ff8a8a; }
   .mc-status.ok { color: #9fe6b8; }
   #stack:has(#panel.hidden):has(#queuePanel.hidden) { display: none; }
@@ -133,14 +136,6 @@
     overflow: hidden;
   }
   #panel.hidden { display: none; }
-
-  /* 顶部难度色条 */
-  .diffbar {
-    height: 4px;
-    margin: -12px -16px 12px;
-    background: transparent;
-    transition: background .35s ease;
-  }
 
   /* 歌曲区：封面左、文字右；难度栏在文字列底部，与封面底部对齐 */
   .song { display: flex; gap: 12px; align-items: stretch; margin-top: 20px; }
@@ -184,7 +179,7 @@
   .standbyart .eq i:nth-child(4) { animation-delay: -.7s; }
   .standbyart .eq i:nth-child(5) { animation-delay: -.4s; }
   @keyframes eqbar {
-    0%, 100% { transform: scaleY(.28); opacity: .55; }
+    0%, 100% { transform: scaleY(.28); opacity: 0.50; }
     50%      { transform: scaleY(.95); opacity: 1; }
   }
   .standbyart .slogo {
@@ -215,8 +210,8 @@
   }
   .srtoggle {
     display: inline-flex; align-items: center; gap: 5px;
-    border: 1px solid rgba(255,255,255,.12); border-radius: 7px;
-    background: rgba(10, 12, 24, .86);
+    border: 1px solid #e6ddcf; border-radius: 999px;
+    background: rgba(255,255,255,.85);
     padding: 3px 7px; cursor: pointer; font-family: inherit;
     transition: border-color .45s ease, background .45s ease;
   }
@@ -298,16 +293,16 @@
     font-size: 22px; font-weight: 700;
     letter-spacing: .2px;
     border: 3px solid rgba(255,255,255,.55);
-    opacity: .72;
+    opacity: 0.50;
     position: relative; overflow: visible;
     transform: skewX(-12deg);
     transition: opacity .25s ease, border-color .25s ease, box-shadow .25s ease;
   }
   /* 常用难度（红/紫/黑）更宽更亮 */
-  .diffseg[data-d="2"] { flex: 1.10 1 0; opacity: .78; }
-  .diffseg[data-d="3"] { flex: 1.24 1 0; opacity: .86; }
-  .diffseg[data-d="4"] { flex: 1.24 1 0; opacity: .76; }
-  .diffseg[data-d="5"] { flex: 1.10 1 0; opacity: .80; }
+  .diffseg[data-d="2"] { flex: 1.10 1 0; opacity: 0.50; }
+  .diffseg[data-d="3"] { flex: 1.24 1 0; opacity: 0.50; }
+  .diffseg[data-d="4"] { flex: 1.24 1 0; opacity: 0.50; }
+  .diffseg[data-d="5"] { flex: 1.10 1 0; opacity: 0.50; }
   /* 内容反向倾斜，保持文字竖直 */
   .diffseg > * { transform: skewX(12deg); }
   /* 定数右上角的上标 + */
@@ -315,7 +310,7 @@
   .diffseg .cv sup {
     position: absolute; top: -.32em; right: -.52em;
     font-size: .55em; font-weight: 700; line-height: 1;
-    opacity: .95;
+    opacity: 0.50;
   }
   /* 只显示定数，不显示难度类别 */
   .diffseg .lv { display: none; }
@@ -345,7 +340,7 @@
     background: linear-gradient(135deg,#ff5a5a,#ffb03a,#ffd24a,#5aff9a,#58c0ff,#b45aff,#ff5ad8) !important;
     color: #10101a !important;
   }
-  .diffseg.we .lv { color: #10101a; opacity: .9; }
+  .diffseg.we .lv { color: #10101a; opacity: 0.50; }
   /* 没有该难度：不显示 */
   .diffseg.missing { display: none !important; }
 
@@ -394,17 +389,571 @@
     gap: 4px 20px; margin-top: 12px;
     border-top: 1px solid rgba(255,255,255,.08); padding-top: 10px;
   }
+  html.skin-game .judges { gap: 5px 8px; }
+  /* 基础判定行（classic 皮肤沿用原样） */
   .jcell { display: flex; justify-content: space-between; align-items: baseline; }
   .jcell .l { font-size: 15px; font-weight: 700; letter-spacing: .5px; }
-  .jcell .n { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
   .jcell.jc .n, .jcell.jc .l { color: var(--jc); }
   .jcell.ju .n, .jcell.ju .l { color: var(--ju); }
   .jcell.at .n, .jcell.at .l { color: var(--at); }
   .jcell.mi .n, .jcell.mi .l { color: var(--mi); }
+  /* 判定行：参考结算画面的彩色横条 + 白字 */
+  html.skin-game .jcell {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 1px 9px 2px; border-radius: 5px;
+    background: var(--bar, rgba(255,255,255,.05));
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.10),
+                0 1px 3px rgba(0,0,0,.45);
+  }
+  /* 判定区：整块用游戏结算画面的原始贴图（314×233），数字叠在条上 */
+  /* JUDGE 卡：与 SCORE 同结构（白卡 + 斜切标签 + 淡黄横条 + 面板贴图） */
+  html.skin-game .judges {
+    position: relative; display: block; width: auto;
+    margin: 16px 0 0; padding: 54px 16px 202px; height: 262px; border: 3px solid #ffffff; border-radius: 16px;
+    background-color: rgba(255,253,253,.46);
+    background-image:
+      linear-gradient(90deg, #00c2ea 0%, #12d8f8 48%, #2fe4ff 100%),
+      var(--pat-dots, none),
+      var(--pat-stripe, none),
+      var(--pat-stripey, none),
+      linear-gradient(155deg, rgba(255,253,254,.54) 0%, rgba(247,242,255,.54) 55%, rgba(242,248,255,.54) 100%);
+    background-size: 100% 44px, 97px 33px, 85px 44px, 85px 44px, auto;
+    background-position: 0 0, left 22px bottom 12px, left -10px top 110px, left 16px bottom 16px, 0 0;
+    background-repeat: no-repeat, repeat, repeat-y, no-repeat, no-repeat;
+    background-repeat: no-repeat;
+    box-shadow: 0 3px 10px rgba(150,120,100,.10);
+    overflow: hidden;
+  }
+  html.skin-game .judges::before {
+    content: ''; position: absolute; left: -3px; top: -3px; width: 232px; height: 47px;
+    background-image:
+      repeating-linear-gradient(45deg, rgba(255,255,255,.16) 0 5px, rgba(255,255,255,0) 5px 12px),
+      linear-gradient(95deg, #8a4dff 0%, #5f7bff 100%);
+    clip-path: polygon(0 0, 100% 0, calc(100% - 18px) 100%, 0 100%);
+    border-radius: 16px 0 0 0;
+  }
+  html.skin-game .judges::after {
+    content: 'JUDGE'; position: absolute; left: 20px; top: 0; height: 44px; line-height: 44px;
+    font-size: 32px; font-weight: 900; letter-spacing: 1px; color: #fff;
+    text-shadow: 0 1px 2px rgba(60,40,140,.35);
+  }
+  html.skin-game .jinner {
+    position: absolute; left: 16px; top: calc(50% + 22px);
+    width: 265px; height: 157px;
+    transform: translateY(-50%) scale(.9); transform-origin: left center;
+    background: var(--panel) no-repeat center / 265px 157px;
+  }
+  /* 右侧：LATE / FAST 双向条形图（以中线为轴，左偏=late 右偏=fast） */
+  html.skin-game .jchart {
+    position: absolute; right: 18px; top: calc(50% + 22px);
+    width: 250px; transform: translateY(-50%); z-index: 1;
+    display: flex; flex-direction: column; gap: 9px;
+  }
+  html.skin-game .jrow { display: flex; align-items: center; gap: 8px; }
+  html.skin-game .jlab {
+    width: 22px; font-size: 11px; font-weight: 900; color: #8a7f95;
+    letter-spacing: .5px; text-align: right;
+  }
+  html.skin-game .jtrack {
+    position: relative; flex: 1 1 auto; height: 13px; border-radius: 7px;
+    background: rgba(120,100,130,.10); overflow: hidden;
+  }
+  html.skin-game .jaxis {
+    position: absolute; left: 50%; top: 0; bottom: 0; width: 1px;
+    background: rgba(255,255,255,.9);
+  }
+  html.skin-game .jbl, html.skin-game .jbr {
+    position: absolute; top: 0; bottom: 0; width: 0;
+    transition: width .35s cubic-bezier(.3,.8,.3,1);
+  }
+  html.skin-game .jbl { right: 50%; border-radius: 7px 0 0 7px;
+    background: linear-gradient(90deg, #ff9a7a, #f0442c); }
+  html.skin-game .jbr { left: 50%; border-radius: 0 7px 7px 0;
+    background: linear-gradient(90deg, #2f7dff, #7cc4ff); }
+  html.skin-game .jcnt { width: 52px; display: flex; align-items: baseline; gap: 3px; }
+  html.skin-game .jcnt b { font-size: 12px; font-weight: 900; font-variant-numeric: tabular-nums; }
+  html.skin-game .jcnt .cl { color: #ef5a44; }
+  html.skin-game .jcnt .cr { color: #2f7dff; }
+  html.skin-game .jcnt em { font-style: normal; font-size: 9px; color: #b6acbd; }
+  html.skin-game .jlegend { display: flex; justify-content: space-between; padding-left: 28px; }
+  html.skin-game .jlegend .lg {
+    font-size: 9px; font-weight: 800; letter-spacing: 1px;
+  }
+  html.skin-game .jlegend .lg.l { color: #ef5a44; }
+  html.skin-game .jlegend .lg.r { color: #2f7dff; }
+  html.skin-game .jcell {
+    z-index: 1;
+    position: absolute; left: 0; width: 265px; height: 37px;
+    padding: 0 10px 0 0; background: none !important; box-shadow: none !important;
+    display: flex; justify-content: flex-end; align-items: center;
+  }
+  html.skin-game .jcell.jc { top: 0; }
+  html.skin-game .jcell.ju { top: 40px; }
+  html.skin-game .jcell.at { top: 80px; }
+  html.skin-game .jcell.mi { top: 120px; }
+  html.skin-game .jcell .l { visibility: hidden; }
+  html.skin-game .flchip {
+    background: none !important; box-shadow: none !important; border-radius: 0;
+    font-size: 0; padding: 0 8px 0 0; height: 25px;
+    display: flex; align-items: center; justify-content: flex-end;
+  }
+  html.skin-game .flchip.late { width: 133px; }
+  html.skin-game .flchip.fast { width: 132px; }
+  /* 行内 FAST/LATE 小计数：放回每行，左侧 LATE、右侧 FAST */
+  html.skin-game .jcell .v { gap: 0; }
+  /* 判定数字统一白色（游戏里就是白字） */
+  html.skin-game .jcell .n { color: #ffffff; }
+  /* 数字在行内垂直居中：用 flex 而不是基线 */
+  html.skin-game .jcell .n { display: inline-flex; align-items: center; line-height: 0; }
+  html.skin-game .jcell .n .dg { vertical-align: 0; }
+  /* 24pt 档位略大于游戏，整体缩到 85%（右对齐，保持右边缘） */
+  html.skin-game .jcell .n .dg { transform: scale(.82); transform-origin: right center; }
+  html.skin-game .jcell .v { align-items: center; }
+  /* ===== 结算画面风格：白底卡片 ===== */
+  /* 品牌 lockup：单张图，右上角骑在边框上，待机微动 */
+  html.skin-game .brand {
+    position: absolute; left: 8px; right: auto; top: 0; width: 168px;
+    transform: translateY(-54%) rotate(1.2deg);
+    transform-origin: 60% 50%;
+    pointer-events: none; z-index: 3;
+    animation: logoIdle 4.6s ease-in-out infinite;
+  }
+  html.skin-game .brand img { display: block; width: 100%; height: auto; }
+  @keyframes logoIdle {
+    0%, 100% { transform: translateY(-54%) rotate(1.2deg) scale(1); }
+    50%      { transform: translateY(-58%) rotate(0.3deg) scale(1.025); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html.skin-game .brand { animation: none; }
+  }
+  /* 图标周边的小装饰（徽标里的星星/波浪），缓慢闪烁 */
+  html.skin-game .brand::before,
+  html.skin-game .brand::after {
+    width: 40px; height: 19px; left: 138px; top: 6px;
+    background: var(--deco-squig, none) no-repeat center / contain;
+    animation: twinkle 4.8s ease-in-out infinite reverse;
+  }
+  html.skin-game .brand::before {
+    width: 22px; height: 20px; left: 118px; top: -6px;
+    background: var(--deco-star, none) no-repeat center / contain;
+    animation: twinkle 3.4s ease-in-out infinite;
+  }
+  html.skin-game .brand::after {
+    width: 58px; height: 16px; left: 128px; bottom: 2px;
+    background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 24'><path d='M4 16 Q14 2 24 16 T44 16 T64 16 T84 16' fill='none' stroke='%23ffb56b' stroke-width='5' stroke-linecap='round' opacity='.55'/></svg>") no-repeat center / contain;
+    animation: twinkle 4.8s ease-in-out infinite reverse;
+  }
+  /* 标题带上的流线光扫 */
+  html.skin-game .shine {
+    position: absolute; left: 0; right: 0; top: 0; height: 44px; overflow: hidden;
+    border-radius: 16px 16px 0 0; pointer-events: none; z-index: 2;
+  }
+  html.skin-game .shine::after {
+    content: ''; position: absolute; top: -30%; left: -45%; width: 34%; height: 160%;
+    background: linear-gradient(100deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.38) 50%, rgba(255,255,255,0) 100%);
+    transform: skewX(-22deg);
+    animation: shineSweep 7s cubic-bezier(.4,0,.6,1) infinite;
+  }
+  html.skin-game .judges .shine::after { animation-delay: -2.3s; }
+  html.skin-game #queuePanel .shine::after { animation-delay: -4.6s; }
+  @keyframes shineSweep {
+    0%   { left: -45%; opacity: 0; }
+    8%   { opacity: 0.50; }
+    42%  { left: 115%; opacity: 0; }
+    100% { left: 115%; opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html.skin-game .shine::after { animation: none; opacity: 0; }
+  }
+  /* 卡片内小装饰：原素材，低透明度，错相位闪烁 */
+  html.skin-game .dgem {
+    position: absolute; pointer-events: none; opacity: 0.30; z-index: 0;
+    background-repeat: no-repeat; background-position: center; background-size: contain;
+    animation: twinkle 5.2s ease-in-out infinite;
+  }
+  html.skin-game .g1 { width: 22px; height: 19px; right: 18px; top: 14px;
+    background-image: var(--deco-star, none); transform: rotate(-12deg); animation-delay: -1.1s; }
+  html.skin-game .g2 { width: 34px; height: 26px; right: 52px; top: 20px;
+    background-image: var(--deco-squig, none); transform: rotate(8deg); animation-delay: -2.6s; }
+  html.skin-game .g3 { width: 24px; height: 20px; left: 44px; top: 88px;
+    background-image: var(--deco-squig, none); transform: rotate(-18deg); animation-delay: -.6s; }
+  html.skin-game .g4 { width: 20px; height: 30px; right: 18px; top: 60px;
+    background-image: var(--deco-bolt, none); transform: rotate(10deg); animation-delay: -3.4s; }
+  html.skin-game .g5 { width: 18px; height: 16px; right: 40px; bottom: 30px;
+    background-image: var(--deco-star, none); transform: rotate(20deg); animation-delay: -4.2s; }
+  html.skin-game .deco {
+    position: absolute; pointer-events: none; opacity: 0.50;
+    animation: twinkle 4s ease-in-out infinite;
+  }
+  
+  
+  
+  
+  @keyframes twinkle {
+    0%, 100% { opacity: 0.45; transform: scale(.9) }
+    50%      { opacity: 1; transform: scale(1.06) }
+  }
+  /* 游戏皮肤卡片更高，放开 playonly 的裁剪高度 */
+  html.skin-game .playonly { max-height: 1200px; }
+  html.skin-game .brand {
+    display: flex; align-items: center; gap: 10px;
+    padding: 2px 0 12px;
+  }
+  html.skin-game .brand img { display: block; }
+  html.skin-game #stack { overflow: visible; }
+  html.skin-game #panel { padding: 52px 16px 20px; }
+  html.skin-game #panel { position: relative; z-index: 1; }
+  html.skin-game .song { margin-top: 0; }
+  html.skin-game #stack {
+    background:
+      radial-gradient(140% 90% at 0% 0%, #fff0f5 0%, rgba(255,255,255,0) 58%),
+      radial-gradient(140% 90% at 100% 0%, #fff7e6 0%, rgba(255,255,255,0) 55%),
+      linear-gradient(180deg, #fffdfb 0%, #fff7f4 100%);
+    border: 3px solid #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 12px 32px rgba(60,40,20,.22), 0 0 0 1px #e8e0d2;
+  }
+  /* 顶部 MATE 粉色渐变条 */
+  html.skin-game body { color: #23222a; }
+  html.skin-game .title { color: #1c1b22; text-shadow: none; }
+  html.skin-game .artist { color: #5d5a63; }
+  html.skin-game .scoreline { border-top-color: rgba(40,36,30,.16); }
+  html.skin-game .score { color: #fff; text-shadow: none; }
+  html.skin-game .combo { color: #6b6672; }
+  html.skin-game .combo b { color: #2b2830; }
+  html.skin-game .combo b.full { color: #2b2830; }
+  html.skin-game #maxcombo { color: #8b8691; }
+  html.skin-game .badges .badge { background: rgba(30,26,20,.08); color: #4a4650; }
+  html.skin-game .feedrow { display: none; }
+  /* QUEUE 卡：同结构，青蓝标签 */
+  /* 点歌板开关：贴到 QUEUE 卡右上角，融入卡片 */
+  /* 点歌板开关：移到 QUEUE 卡内右上角 */
+  html.skin-game #srbar {
+    position: absolute; right: 14px; top: 22px; transform: translateY(-50%);
+    display: flex; align-items: center; padding: 0; margin: 0;
+    background: transparent; z-index: 7;
+  }
+  html.skin-game .srtoggle {
+    background: rgba(255,255,255,.55); border: 1px solid rgba(53,198,176,.35);
+    color: rgba(47,155,139,.85); border-radius: 999px; padding: 2px 8px;
+    font-size: 10px; box-shadow: none; backdrop-filter: blur(2px);
+    opacity: 0.50; transition: opacity .3s ease, background .3s ease;
+  }
+  html.skin-game .srtoggle:hover { opacity: 1; background: rgba(255,255,255,.9); }
+  /* 歌单图标按钮：无文字，垂直居中 */
+  /* 点歌按钮：轨道 + 滑动圆钮（音符在钮内），动效只有位移和底色 */
+  html.skin-game .srtoggle {
+    position: relative; width: 42px; height: 24px; padding: 0; gap: 0;
+    border-radius: 999px; display: block;
+    background: rgba(255,255,255,.75);
+    border: 1px solid rgba(47,155,139,.45);
+    opacity: 1; box-shadow: none;
+    transition: background-color .3s ease, border-color .3s ease;
+  }
+  html.skin-game .srtoggle .lbl,
+  html.skin-game .srtoggle::before { display: none; }
+  html.skin-game .srtoggle .sw {
+    display: block; position: absolute; left: 2px; top: 2px;
+    width: 18px; height: 18px; margin: 0; border-radius: 50%;
+    background: #4c5360 url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><g fill='%23ffffff'><ellipse cx='5.2' cy='12' rx='3.9' ry='2.9' transform='rotate(-18 5.2 12)'/><rect x='8.1' y='2.6' width='1.9' height='9.6' rx='0.9'/><path d='M10 2.6c3.2 0.9 4.2 2.6 3.9 5.1-0.7-1.9-2-2.9-3.9-3.2z'/></g></svg>") center / 11px 11px no-repeat;
+    box-shadow: 0 1px 3px rgba(20,80,70,.28);
+    transition: left .28s cubic-bezier(.34,.9,.4,1);
+  }
+  html.skin-game .srtoggle .sw i { display: none; }
+  html.skin-game .srtoggle.on { background: rgba(76,83,96,.22); border-color: #4c5360; }
+  html.skin-game .srtoggle.on .sw { left: 20px; }
+  /* 点歌关闭状态：卡片保留（开关仍在），内容收起 */
+  html.skin-game #queuePanel.off #qnormalWrap,
+  html.skin-game #queuePanel.off #qselect,
+  html.skin-game #queuePanel.off #qchoices { display: none; }
+  html.skin-game #queuePanel.off { padding-bottom: 18px; }
+  html.skin-game #queuePanel {
+    position: relative; margin: 16px 0 0; padding: 58px 16px 28px;
+    border: 3px solid #ffffff; border-radius: 16px;
+    background-color: rgba(255,253,253,.46);
+    background-image:
+      linear-gradient(90deg, #eceef1 0%, #f6f7f9 48%, #ffffff 100%),
+      var(--pat-dots, none),
+      var(--pat-stripe, none),
+      linear-gradient(155deg, rgba(255,254,254,.54) 0%, rgba(246,247,249,.54) 55%, rgba(238,240,243,.54) 100%);
+    background-size: 100% 44px, 97px 33px, 85px 44px, auto;
+    background-position: 0 0, left 20px bottom 14px, left -10px top 96px, 0 0;
+    background-repeat: no-repeat;
+    box-shadow: 0 3px 10px rgba(150,120,100,.10);
+    overflow: hidden;
+  }
+  html.skin-game #queuePanel::before {
+    content: ''; position: absolute; left: -3px; top: -3px; width: 232px; height: 47px;
+    background-image:
+      repeating-linear-gradient(45deg, rgba(255,255,255,.18) 0 5px, rgba(255,255,255,0) 5px 12px),
+      linear-gradient(95deg, #2b2f36 0%, #4c5360 100%);
+    clip-path: polygon(0 0, 100% 0, calc(100% - 18px) 100%, 0 100%);
+    border-radius: 16px 0 0 0;
+  }
+  html.skin-game #queuePanel::after {
+    content: 'QUEUE'; position: absolute; left: 20px; top: 0; height: 44px; line-height: 44px;
+    font-size: 32px; font-weight: 900; letter-spacing: 1px; color: #fff;
+    text-shadow: 0 1px 2px rgba(20,90,80,.35);
+  }
+  html.skin-game .qslot {
+    overflow: hidden !important;
+    background: rgba(255,255,255,.78);
+    border-width: 3px; border-style: solid; border-radius: 12px;
+    backdrop-filter: blur(7px) saturate(1.05);
+    box-shadow: 0 4px 14px rgba(150,115,95,.16);
+  }
+  /* 难度色磨砂底带 */
+  html.skin-game .qslot.diff::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(180deg,
+      rgba(255,255,255,0) 30%, var(--dband, transparent) 100%);
+    pointer-events: none; z-index: 0;
+  }
+  html.skin-game .qslot .art,
+  html.skin-game .qslot .qinfo { position: relative; z-index: 1; }
+  html.skin-game .qslot .qd { color: var(--dc, #8a7680); font-weight: 800; }
+  html.skin-game .qslot .qt {
+    color: #2f2329; font-weight: 800; line-height: 1.2;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  html.skin-game .qslot .qd { font-weight: 900; letter-spacing: .2px; }
+  html.skin-game .qslot .qexp .er { font-weight: 600; }
+  /* 小卡（未展开）里的难度行：单行省略，避免被裁成半截 */
+  html.skin-game .qslot:not(.expanded) .qd {
+    font-size: 10px; margin-top: 1px; line-height: 1.2;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  html.skin-game .qslot .qinfo { min-height: 0; overflow: hidden; }
+  /* 删歌按钮：白底圆形，位于封面右上角 */
+  html.skin-game .badge.best {
+    background: linear-gradient(90deg, #ffd76a, #ffab2e);
+    color: #55320a; font-weight: 900; letter-spacing: .3px;
+  }
 
-  /* EARLY / LATE：总数徽章 + 各判定数字两侧的小字 */
-  .flrow { display: flex; gap: 8px; margin-top: 9px; }
-  .flrow.hidden { display: none; }
+
+  /* 背景点缀层：位于画板之上、卡片之下，透过半透明卡片若隐若现 */
+  html.skin-game #stack { position: relative; }
+  html.skin-game .bgdeco {
+    position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+    border-radius: 16px;
+  }
+  html.skin-game .bd {
+    position: absolute; background-repeat: no-repeat; background-size: contain;
+  }
+  html.skin-game #panel, html.skin-game #queuePanel { position: relative; z-index: 1; }
+
+  /* 装饰点缀：素材取自 CHU_UI_Common_BK_01 / BK_02_Mate */
+  html.skin-game #stack {
+    --d1: none; --d2: none; --d3: none;
+    --d4: none; --d5: none; --d6: none; --d7: none;
+    --d8: none; --d9: none;
+  }
+
+  html.skin-game .bd.b1 { left: 7px; top: 101px; width: 86px; height: 86px;
+    background-image: var(--d6); opacity: 0.46; animation: decoTwinkle 4.6s ease-in-out infinite 0.9s; }
+  html.skin-game .bd.b2 { left: 159px; top: 80px; width: 100px; height: 72px;
+    background-image: var(--d2); opacity: 0.40; animation: decoSpin 18s linear infinite 0.6s; }
+  html.skin-game .bd.b3 { left: 298px; top: 103px; width: 100px; height: 100px;
+    background-image: var(--d7); opacity: 0.52; animation: decoFloat 7.5s ease-in-out infinite alternate-reverse; }
+  html.skin-game .bd.b4 { left: 496px; top: 117px; width: 58px; height: 58px;
+    background-image: var(--d3); opacity: 0.34; animation: decoTwinkle 5.6s ease-in-out infinite 1.2s; }
+  html.skin-game .bd.b5 { left: 30px; top: 222px; width: 100px; height: 112px;
+    background-image: var(--d9); opacity: 0.40; animation: decoSpin 24s linear reverse infinite; }
+  html.skin-game .bd.b6 { left: 301px; top: 224px; width: 116px; height: 129px;
+    background-image: var(--d5); opacity: 0.40; animation: decoFloat 6.5s ease-in-out infinite alternate 1.6s; }
+  html.skin-game .bd.b7 { left: 456px; top: 292px; width: 86px; height: 61px;
+    background-image: var(--d1); opacity: 0.46; animation: decoTwinkle 4.6s ease-in-out infinite 1.6s; }
+  html.skin-game .bd.b8 { left: 11px; top: 434px; width: 86px; height: 61px;
+    background-image: var(--d7); opacity: 0.40; animation: decoSpin 18s linear infinite 1.6s; }
+  html.skin-game .bd.b9 { left: 173px; top: 431px; width: 100px; height: 72px;
+    background-image: var(--d3); opacity: 0.40; animation: decoFloat 7.5s ease-in-out infinite alternate-reverse 0.3s; }
+  html.skin-game .bd.b10 { left: 311px; top: 460px; width: 72px; height: 51px;
+    background-image: var(--d8); opacity: 0.40; animation: decoTwinkle 5.6s ease-in-out infinite 1.2s; }
+  html.skin-game .bd.b11 { left: 445px; top: 428px; width: 58px; height: 58px;
+    background-image: var(--d4); opacity: 0.34; animation: decoSpin 24s linear reverse infinite 1.2s; }
+  html.skin-game .bd.b12 { left: 165px; top: 604px; width: 86px; height: 61px;
+    background-image: var(--d1); opacity: 0.46; animation: decoFloat 6.5s ease-in-out infinite alternate; }
+  html.skin-game .bd.b13 { left: 325px; top: 548px; width: 86px; height: 96px;
+    background-image: var(--d6); opacity: 0.52; animation: decoTwinkle 4.6s ease-in-out infinite 1.2s; }
+  html.skin-game .bd.b14 { left: 442px; top: 542px; width: 72px; height: 80px;
+    background-image: var(--d2); opacity: 0.34; animation: decoSpin 18s linear infinite 1.6s; }
+  html.skin-game .bd.b15 { left: 16px; top: 718px; width: 100px; height: 100px;
+    background-image: var(--d8); opacity: 0.40; animation: decoFloat 7.5s ease-in-out infinite alternate-reverse 1.6s; }
+  html.skin-game .bd.b16 { left: 154px; top: 694px; width: 116px; height: 116px;
+    background-image: var(--d4); opacity: 0.52; animation: decoTwinkle 5.6s ease-in-out infinite; }
+  html.skin-game .bd.b17 { left: 344px; top: 734px; width: 58px; height: 41px;
+    background-image: var(--d9); opacity: 0.34; animation: decoSpin 24s linear reverse infinite 0.3s; }
+  html.skin-game .bd.b18 { left: 6px; top: 867px; width: 72px; height: 51px;
+    background-image: var(--d6); opacity: 0.34; animation: decoFloat 6.5s ease-in-out infinite alternate 1.2s; }
+  html.skin-game .bd.b19 { left: 150px; top: 883px; width: 100px; height: 72px;
+    background-image: var(--d2); opacity: 0.34; animation: decoTwinkle 4.6s ease-in-out infinite 0.9s; }
+  html.skin-game .bd.b20 { left: 292px; top: 843px; width: 100px; height: 100px;
+    background-image: var(--d7); opacity: 0.46; animation: decoSpin 18s linear infinite 0.9s; }
+  html.skin-game .bd.b21 { left: 445px; top: 868px; width: 116px; height: 116px;
+    background-image: var(--d3); opacity: 0.46; animation: decoFloat 7.5s ease-in-out infinite alternate-reverse 0.3s; }
+
+  @keyframes decoFloat {
+    from { transform: translateY(0) rotate(0deg); }
+    to   { transform: translateY(-7px) rotate(5deg); }
+  }
+  @keyframes decoSpin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+  @keyframes decoTwinkle {
+    0%, 100% { opacity: 0.28; transform: scale(.94); }
+    50%      { opacity: 0.50; transform: scale(1.06); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html.skin-game .bd { animation: none; }
+  }
+  html.skin-game #queuePanel.collapsed { padding-bottom: 0; }
+  html.skin-game #queuePanel.collapsed #qnormalWrap,
+  html.skin-game #queuePanel.collapsed #qselect,
+  html.skin-game #queuePanel.collapsed #qmsg { display: none; }
+  html.skin-game #queuePanel .qfold {
+    position: absolute; left: 0; top: 0; width: calc(100% - 96px); height: 50px;
+    background: none; border: 0; padding: 0; cursor: pointer; z-index: 5;
+  }
+  html.skin-game .qnone {
+    position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; letter-spacing: .5px;
+    color: #9a94a2;
+  }
+  html.skin-game .qnone.hidden { display: none; }
+  html.skin-game .qmore {
+    border: 3px solid rgba(53,198,176,.38);
+    border-radius: 12px;
+    background: rgba(255,255,255,.86);
+    color: #2f9b8b; font-size: 14px; font-weight: 900;
+    box-shadow: 0 4px 14px rgba(150,115,95,.14);
+    backdrop-filter: blur(6px);
+  }
+  html.skin-game .qdel {
+    position: absolute; z-index: 6;
+    top: 6px; right: 6px; width: 22px; height: 22px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.96);
+    border: 1px solid rgba(160,120,140,.32);
+    color: #97707f;
+    font-size: 15px; line-height: 19px; font-weight: 700;
+    box-shadow: 0 2px 5px rgba(120,80,100,.22);
+    transition: background .18s ease, color .18s ease, opacity .18s ease, transform .18s ease;
+  }
+  html.skin-game .qdel:hover {
+    background: #ff5a6e; border-color: #ff5a6e; color: #fff;
+  }
+  html.skin-game .qslot.fan .qd { display: none; }
+
+  html.skin-game .qslot.expanded {
+    background: rgba(255,255,255,.94);
+    border-color: #ff9dc0; box-shadow: 0 8px 20px rgba(255,140,180,.26);
+  }
+  /* 队列卡片文字：贴近日系黑体（游戏内用的是 SEGA 角ゴシック） */
+  html.skin-game .qslot,
+  html.skin-game .qmini,
+  html.skin-game .qslot .qt,
+  html.skin-game .qslot .qd,
+  html.skin-game .qslot .qexp .er {
+    font-family: "Yu Gothic UI", "Yu Gothic", "Meiryo", "MS PGothic", "Noto Sans CJK JP", sans-serif;
+  }
+  html.skin-game .qslot .qexp .er { color: #6a5a62; }
+  html.skin-game .qslot .qexp .er b {
+    color: #a58d97; font-weight: 700; margin-right: 4px;
+  }
+  html.skin-game .qt { color: #3a2b33; }
+  html.skin-game .qd { color: #8a7680; }
+  html.skin-game .qmini { border-color: #ffd9e6; }
+  /* 待机占位与开关在浅色底上的对比度修正（design_review 报的 1:1） */
+  html.skin-game .standby-diffs b {
+    border-color: rgba(90,70,45,.18); background: rgba(90,70,45,.05);
+    color: rgba(90,70,45,.38);
+  }
+  html.skin-game .standbyart {
+    background: linear-gradient(145deg, #f4efe6 0%, #e9e1d3 100%);
+    border-color: rgba(120,95,60,.14);
+    box-shadow: inset 0 0 24px rgba(140,115,80,.16);
+  }
+  html.skin-game .standbyart .eq i { background: #c8578a; }
+  html.skin-game .standbyart .slogo { color: #9c9080; }
+  html.skin-game .srtoggle { padding: 5px 9px; }
+  /* 白底上分数用更明显的描边，才像游戏结算画面 */
+  /* 字形层：外层定位 + ::before 负责 mask 填充 */
+  .dg {
+    position: relative; display: inline-block;
+  }
+  .dg::before {
+    content: ''; position: absolute; inset: 0; background: currentColor;
+    -webkit-mask: var(--m) no-repeat center / 100% 100%;
+    mask: var(--m) no-repeat center / 100% 100%;
+  }
+  html.skin-game .score { letter-spacing: 0; line-height: 56px; }
+  /* SCORE 标题条（仿结算画面） */
+  /* SCORE 卡：结算画面同款（白卡 + 粉橙斜切标签 + 淡黄横条） */
+  html.skin-game .scoreline {
+    position: relative; border-top: 0; margin: 16px 0 0; flex-direction: row;
+    padding: 88px 16px 16px; border-radius: 16px; border: 3px solid #ffffff;
+    background-color: rgba(255,253,253,.46);
+    background-image:
+      linear-gradient(90deg, #ff6a00 0%, #ffa000 45%, #ffd400 100%),
+      var(--pat-dots, none),
+      var(--pat-stripe, none),
+      var(--pat-stripey, none),
+      linear-gradient(155deg, rgba(255,253,254,.54) 0%, rgba(253,245,251,.54) 55%, rgba(246,251,255,.54) 100%);
+    background-size: 100% 44px, 97px 33px, 85px 44px, 85px 44px, auto;
+    background-position: 0 0, left 18px bottom 10px, left -10px top 100px, left 14px bottom 14px, 0 0;
+    background-repeat: no-repeat, repeat, repeat-y, no-repeat, no-repeat, no-repeat;
+    background-repeat: no-repeat;
+    box-shadow: 0 3px 10px rgba(150,120,100,.10);
+    overflow: hidden;
+  }
+  html.skin-game .scoreline::before {
+    content: ''; position: absolute; left: -3px; top: -3px; width: 250px; height: 47px;
+    background-image: var(--pat-stripey, none), linear-gradient(95deg, #ff0a6b 0%, #ff5a00 100%);
+    background-size: 85px 44px, auto;
+    background-repeat: repeat-x, no-repeat;
+    clip-path: polygon(0 0, 100% 0, calc(100% - 18px) 100%, 0 100%);
+    border-radius: 16px 0 0 0;
+  }
+  html.skin-game .scoreline::after {
+    content: 'SCORE'; position: absolute; left: 20px; top: 0; height: 44px; line-height: 44px;
+    font-size: 32px; font-weight: 900; letter-spacing: 1px; color: #fff;
+    text-shadow: 0 1px 2px rgba(170,50,90,.35);
+  }
+  html.skin-game .sd { height: 74px; width: auto; vertical-align: -8px; margin: 0; }
+  html.skin-game .sd.comma { height: 46px; vertical-align: -14px; margin: 0 2px 0 2px; }
+  html.skin-game .jd { height: 26px; width: auto; vertical-align: -4px; }
+  html.skin-game .jd.jdfl { height: 22px; vertical-align: -3px; }
+  html.skin-game .jd.jdsm { height: 13px; vertical-align: -1px; opacity: 0.50; }
+  html.skin-game .sd.jf { height: 17px; vertical-align: -1px; }
+  html.skin-game .sd.cmb { height: 26px; vertical-align: -2px; }
+  html.skin-game .sd.mc { height: 15px; vertical-align: 0; }
+  html.skin-game .sd.js { height: 14px; vertical-align: 0; }
+  html.skin-game .mslash { font-style: normal; opacity: 0.50; margin: 0 4px; }
+  html.skin-game .score .sd { filter: drop-shadow(0 2px 2px rgba(70,55,40,.38)); }
+  html.skin-game #score .dg {
+    filter:
+      drop-shadow(.018em 0 0 #6b6670) drop-shadow(-.018em 0 0 #6b6670)
+      drop-shadow(0 .018em 0 #6b6670) drop-shadow(0 -.018em 0 #6b6670)
+      drop-shadow(0 .03em .04em rgba(0,0,0,.28));
+  }
+  /* 难度块：白底上提高不透明度、加深投影，避免发灰 */
+  html.skin-game .diffseg {
+    opacity: 0.50; border-color: rgba(255,255,255,.95);
+    box-shadow: 0 2px 5px rgba(0,0,0,.22);
+  }
+  html.skin-game .diffseg.cur { opacity: 1; box-shadow: 0 3px 10px rgba(0,0,0,.35); }
+  /* 白底上难度块改为实色平涂 + 白字（游戏选曲界面的样子） */
+  html.skin-game .diffseg:not(.ultima):not(.we) {
+    background: currentColor !important; opacity: 0.50;
+    border-color: rgba(255,255,255,.95);
+  }
+  html.skin-game .diffseg > * { color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.35); }
+  html.skin-game .diffseg.cur {
+    opacity: 1; box-shadow: 0 0 0 3px #fff, 0 4px 12px rgba(0,0,0,.35);
+  }
   .flchip {
     flex: 1 1 0;
     font-size: 12px; font-weight: 700; letter-spacing: .4px;
@@ -415,15 +964,21 @@
   .flchip.fast { background: rgba(90,170,255,.16); color: #7cc0ff; }
   .flchip.late { background: rgba(255,70,70,.18); color: #ff5a5a; }
   .flchip b { font-size: 14px; }
+  html.skin-game .flchip {
+    color: #fff; border-radius: 5px; padding: 3px 9px 4px;
+    text-shadow: 0 1px 3px rgba(0,0,0,.55);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.10),
+                0 1px 3px rgba(0,0,0,.45);
+  }
+  html.skin-game .flchip.late {
+    background: linear-gradient(180deg, #ff4b3e 0%, #e02a25 100%);
+  }
+  html.skin-game .flchip.fast {
+    background: linear-gradient(180deg, #3fb0ff 0%, #1379d6 100%);
+  }
+  html.skin-game .flchip b { color: #fff; }
 
   .jcell .v { display: inline-flex; align-items: baseline; gap: 7px; }
-  .jcell .fl {
-    font-style: normal; font-size: 12px; font-weight: 600;
-    font-variant-numeric: tabular-nums; opacity: .8;
-  }
-  .jcell .fl.late { color: #ff5a5a; }
-  .jcell .fl.fast { color: #7cc0ff; }
-  .jcell .fl.zero { opacity: .28; }
 
   .feedrow {    display: flex; gap: 8px; align-items: flex-start;
     margin-top: 10px;
@@ -462,11 +1017,8 @@
   .chip.JU { color: #1a0e04; background: var(--ju); }
   .chip.AT { color: #06130a; background: var(--at); }
   .chip.MI { color: #16181f; background: var(--mi); }
-  .chip .dl { font-size: 10px; opacity: .8; }
+  .chip .dl { font-size: 10px; opacity: 0.50; }
   @keyframes pop { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-
-  #status { font-size: 11px; color: var(--dim); margin-top: 6px; display: none; }
-  body.debug #status { display: block; }
 
   /* —— 主面板下方的队列区：与主面板共用一张卡 —— */
   .sidecard {
@@ -498,7 +1050,7 @@
   }
   .qslot[draggable="true"] { cursor: grab; }
   .qslot:hover { box-shadow: 0 5px 16px rgba(0,0,0,.45); }
-  .qslot.dragging { opacity: .42; cursor: grabbing; }
+  .qslot.dragging { opacity: 0.50; cursor: grabbing; }
   .qslot.drag-over {
     box-shadow: 0 0 0 2px #ffcf3a, 0 6px 20px rgba(0,0,0,.5);
   }
@@ -597,12 +1149,12 @@
     border-radius: 13px; pointer-events: none;
     border: 2px solid var(--rc, #ffcf3a);
     box-shadow: 0 0 14px var(--rc, #ffcf3a);
-    opacity: .85;
+    opacity: 0.50;
     animation: playPulse 2s ease-in-out infinite alternate;
   }
   @keyframes playPulse {
-    from { opacity: .35; box-shadow: 0 0 6px var(--rc, #ffcf3a); }
-    to   { opacity: .95; box-shadow: 0 0 18px var(--rc, #ffcf3a); }
+    from { opacity: 0.45; box-shadow: 0 0 6px var(--rc, #ffcf3a); }
+    to   { opacity: 0.50; box-shadow: 0 0 18px var(--rc, #ffcf3a); }
   }
   .qslot .qt {
     margin-top: 4px; min-height: 2.5em;
@@ -683,7 +1235,7 @@
     border-color: rgba(255,255,255,.22);
     transform: translateX(2px);
   }
-  .choice.dragging { opacity: .42; }
+  .choice.dragging { opacity: 0.50; }
   .choice.drag-over { border-color: #ffcf3a; box-shadow: 0 0 0 1px #ffcf3a; }
   .choice .cdel {
     position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
@@ -691,11 +1243,11 @@
     border: 1px solid rgba(255,255,255,.25);
     background: rgba(8,10,18,.75); color: #dfe6ff;
     font-size: 12px; line-height: 15px; text-align: center; padding: 0;
-    cursor: pointer; opacity: .0;
+    cursor: pointer; opacity: 0.10;
     transition: opacity .18s ease, background .18s ease;
     pointer-events: none;
   }
-  .choice:hover .cdel { opacity: .9; pointer-events: auto; }
+  .choice:hover .cdel { opacity: 0.50; pointer-events: auto; }
   .choice .cdel:hover { background: #ff5a5a; }
   .choice .num {
     flex: 0 0 18px; text-align: center;
@@ -765,10 +1317,191 @@
   #tip .tr { display: flex; gap: 6px; color: #c6cbe0; }
   #tip .tr b { color: #7f88a3; font-weight: 600; min-width: 34px; }
   #tip .td { margin-top: 5px; color: #ffcf3a; }
+  /* 删歌按钮：白底圆形，位于封面右上角 */
+  html.skin-game .qmore {
+    border: 3px solid rgba(53,198,176,.38);
+    border-radius: 12px;
+    background: rgba(255,255,255,.86);
+    color: #2f9b8b; font-size: 14px; font-weight: 900;
+    box-shadow: 0 4px 14px rgba(150,115,95,.14);
+    backdrop-filter: blur(6px);
+  }
+
+  /* SCORE 卡：分数垂直居中放大；评级 + COMBO 在左下角 */
+  html.skin-game .scoreline {
+    padding: 0; height: 218px;
+    flex-direction: row; align-items: center; justify-content: flex-start;
+  }
+  html.skin-game .scrow {
+    position: absolute; left: 20px; right: 20px; top: 56px; bottom: 35px;
+    display: flex; align-items: center; transform-origin: left center;
+  }
+  html.skin-game .scoreline .score {
+    position: static; margin: 0; text-align: left; line-height: 0;
+    display: flex; align-items: center;
+    flex: 0 0 auto; white-space: nowrap;
+  }
+  html.skin-game .scoreline .score .sd { height: 68px; vertical-align: -6px; margin: 0 1px; }
+  html.skin-game .scoreline .score .sd.comma { height: 42px; vertical-align: -12px; margin: 0 2px; }
+  html.skin-game .scfoot {
+    position: absolute; left: 20px; bottom: 10px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  html.skin-game .rankbox { display: flex; align-items: center; }
+  html.skin-game .rankart { display: flex; align-items: flex-end; gap: 0; height: 30px; }
+  html.skin-game .rankart img { height: 30px; width: auto; display: block; }
+  html.skin-game .rankart img.plus { height: 14px; margin-left: 1px; align-self: flex-start; }
+  html.skin-game .rankart.pop { animation: rankPop .36s cubic-bezier(.2,.9,.3,1.25); }
+  html.skin-game .rankart.hidden { display: none; }
+  @keyframes rankPop {
+    0%   { transform: scale(.55); opacity: 0; }
+    60%  { transform: scale(1.12); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* 难度块：不透明；选中项用 MATE 主题渐变色描边，播放时渐变色流动 */
+  html.skin-game .diffseg,
+  html.skin-game .diffseg:not(.ultima):not(.we) {
+    opacity: 1 !important;
+    border-color: rgba(255,255,255,.92);
+    box-shadow: 0 2px 6px rgba(120,80,60,.18);
+    transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+  }
+  html.skin-game .diffrow > .diffseg { font-size: 30px !important; }
+  html.skin-game .diffstack .diffseg { font-size: 16px !important; }
+  html.skin-game .diffseg {
+    position: relative;
+  }
+  /* 选中难度：加粗白边 + 主题色外圈 + 光晕，明显但不改变尺寸 */
+  html.skin-game .diffseg {
+    /* 未选中缩小，和选中形成明显落差 */
+    transform: skewX(-12deg);
+    transition: box-shadow .26s ease, transform .26s ease;
+  }
+  html.skin-game .diffseg.cur {
+    opacity: 1 !important;
+    z-index: 3;
+    /* 未选中 82% → 选中 110%，并整体上提，明显突出 */
+    transform: skewX(-12deg) scale(1.10) translateY(-3px);
+    box-shadow: 0 4px 12px rgba(0,0,0,.20);
+  }
+  /* 游玩中：去掉光晕，改为整体缩放呼吸 */
+  html.skin-game #stack.in-game .diffseg.cur {
+    animation: curBreath 2.4s ease-in-out infinite;
+    box-shadow: 0 4px 10px rgba(0,0,0,.20);
+  }
+  @keyframes curBreath {
+    0%, 100% { transform: skewX(-12deg) scale(1.06) translateY(-2px); }
+    50%      { transform: skewX(-12deg) scale(1.14) translateY(-4px); }
+  }
+  /* 难度色：取自 CHU_UI_playing_00_v11.dds 的 TRACK 条 */
+  html.skin-game .diffseg[data-d="0"] { --dc: #04a075; }
+  html.skin-game .diffseg[data-d="1"] { --dc: #ec7405; }
+  html.skin-game .diffseg[data-d="2"] { --dc: #dc2828; }
+  html.skin-game .diffseg[data-d="3"] { --dc: #7b17c3; }
+  html.skin-game .diffseg[data-d="4"] { --dc: #17121a; }
+  html.skin-game .diffseg:not(.we):not(.ultima) { background: var(--dc) !important; }
+  /* 曲绘不做任何透明/压暗处理 */
+  html.skin-game .jacket { opacity: 1 !important; filter: none !important; }
+  /* 难度块：整体收窄一点，间距也收紧 */
+  html.skin-game .diffrow {
+    gap: 5px;
+    max-width: 84%;
+    height: 70px;
+  }
+  html.skin-game .diffstack { gap: 4px; }
+  /* 难度块：白边加粗 */
+  html.skin-game .diffseg {
+    border-width: 5px !important;
+    border-color: #ffffff !important;
+  }
+  /* 难度块：等宽等高、等距、居中对齐 */
+  html.skin-game .diffrow {
+    gap: 6px;
+    height: 86px;
+    align-items: stretch;
+  }
+  html.skin-game .diffstack { gap: 3px; }
+  html.skin-game .diffrow > .diffseg,
+  html.skin-game .diffstack {
+    flex: 1 1 0 !important;
+    min-width: 0;
+  }
+  html.skin-game .diffseg {
+    transform-origin: center center;
+  }
+  html.skin-game .diffseg.cur {
+    transform: skewX(-12deg) scale(1.08);
+  }
+  html.skin-game #stack.in-game .diffseg.cur {
+    animation: curBreath 2.4s ease-in-out infinite;
+  }
+  @keyframes curBreath {
+    0%, 100% { transform: skewX(-12deg) scale(1.04); }
+    50%      { transform: skewX(-12deg) scale(1.12); }
+  }
+  /* 连击徽章：放在评级字母后面，固定槽位，与评级底对齐 */
+  html.skin-game .scfoot { gap: 0; }
+  html.skin-game .rankbox {
+    width: 94px; flex: 0 0 94px;
+    display: flex; align-items: flex-end;
+  }
+  html.skin-game .cmslot {
+    width: 136px; height: 24px; margin-left: 12px;
+    display: flex; align-items: flex-end; justify-content: flex-start;
+  }
+  html.skin-game .cmslot img {
+    height: 24px; width: auto; display: block;
+    filter: drop-shadow(0 1px 2px rgba(120,70,50,.28));
+  }
+  html.skin-game .scfoot .combo { margin-left: 12px; }
+  /* COMBO 标签：与曲名同一套字体 */
+  html.skin-game .combo,
+  html.skin-game .combo b,
+  html.skin-game #maxcombo {
+    font-family: "Segoe UI", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+    font-size: 26px; font-weight: 700; letter-spacing: .2px;
+    line-height: 1.1;
+  }
+  html.skin-game .combo {
+    display: inline-flex; align-items: baseline; gap: 6px;
+    color: #1c1b22;
+  }
+  html.skin-game .cmlbl { color: #1c1b22; }
+  html.skin-game .combo b { color: #1c1b22; }
+  html.skin-game #maxcombo { color: #8b8691; font-size: 18px; }
+  /* 待机（没有曲目）时：不显示空的 SCORE / JUDGE 卡片 */
+  html.skin-game #panel.standby .playonly { display: none; }
 </style>
 </head>
 <body>
   <div id="stack">
+    <div class="brand" id="brand"><img id="blogo" alt="CHUNITHM MATE"></div>
+
+  <div class="bgdeco">
+    <i class="bd b1"></i>
+    <i class="bd b2"></i>
+    <i class="bd b3"></i>
+    <i class="bd b4"></i>
+    <i class="bd b5"></i>
+    <i class="bd b6"></i>
+    <i class="bd b7"></i>
+    <i class="bd b8"></i>
+    <i class="bd b9"></i>
+    <i class="bd b10"></i>
+    <i class="bd b11"></i>
+    <i class="bd b12"></i>
+    <i class="bd b13"></i>
+    <i class="bd b14"></i>
+    <i class="bd b15"></i>
+    <i class="bd b16"></i>
+    <i class="bd b17"></i>
+    <i class="bd b18"></i>
+    <i class="bd b19"></i>
+    <i class="bd b20"></i>
+    <i class="bd b21"></i>
+  </div>
+
   <div id="panel">
     <div class="diffbar" id="diffbar"></div>
 
@@ -782,8 +1515,8 @@
         <div class="title" id="title">WAITING FOR SELECT</div>
         <div class="artist" id="artist">等待选曲</div>
         <div class="badges">
-          <span class="badge" id="bpm" style="display:none"></span>
           <span class="badge demo" id="demobadge" style="display:none">DEMO</span>
+          <span class="badge best" id="bestbadge" style="display:none"></span>
         </div>
         <div class="diffrow" id="diffrow"></div>
       </div>
@@ -791,26 +1524,32 @@
 
     <div class="playonly">
       <div class="scoreline">
-        <span class="score" id="score">0</span>
-        <span class="combo">COMBO <b id="combo">0</b><span id="maxcombo"></span></span>
+        <i class="shine"></i>
+        <span class="scrow"><span class="score" id="score">0</span></span>
+        <span class="scfoot">
+          <span class="rankbox"><span class="rankart" id="rankart"></span></span>
+          <span class="cmslot" id="cmslot"></span>
+          <span class="combo"><span class="cmlbl" id="cmlbl">COMBO</span><b id="combo">0</b><span id="maxcombo"></span></span>
+        </span>
       </div>
       <div class="judges">
-        <div class="jcell jc"><span class="l">JUSTICE CRITICAL</span><span class="v"><em class="fl late" id="ljc">0</em><span class="n" id="jc">0</span><em class="fl fast" id="fjc">0</em></span></div>
-        <div class="jcell ju"><span class="l">JUSTICE</span><span class="v"><em class="fl late" id="lju">0</em><span class="n" id="ju">0</span><em class="fl fast" id="fju">0</em></span></div>
-        <div class="jcell at"><span class="l">ATTACK</span><span class="v"><em class="fl late" id="lat">0</em><span class="n" id="at">0</span><em class="fl fast" id="fat">0</em></span></div>
+        <i class="shine"></i>
+        <div class="jinner">
+        <div class="jcell jc"><span class="l">JUSTICE CRITICAL</span><span class="v"><span class="n" id="jc">0</span></span></div>
+        <div class="jcell ju"><span class="l">JUSTICE</span><span class="v"><span class="n" id="ju">0</span></span></div>
+        <div class="jcell at"><span class="l">ATTACK</span><span class="v"><span class="n" id="at">0</span></span></div>
         <div class="jcell mi"><span class="l">MISS</span><span class="n" id="mi">0</span></div>
+        </div>
+        <div class="jchart" id="jchart">
+          <div class="jrow"><span class="jlab">JC</span><div class="jtrack"><i class="jbl"></i><i class="jbr"></i><span class="jaxis"></span></div><span class="jcnt"><b class="cl">0</b><em>/</em><b class="cr">0</b></span></div>
+          <div class="jrow"><span class="jlab">JU</span><div class="jtrack"><i class="jbl"></i><i class="jbr"></i><span class="jaxis"></span></div><span class="jcnt"><b class="cl">0</b><em>/</em><b class="cr">0</b></span></div>
+          <div class="jrow"><span class="jlab">AT</span><div class="jtrack"><i class="jbl"></i><i class="jbr"></i><span class="jaxis"></span></div><span class="jcnt"><b class="cl">0</b><em>/</em><b class="cr">0</b></span></div>
+          <div class="jlegend"><span class="lg l">LATE</span><span class="lg r">FAST</span></div>
+        </div>
       </div>
-      <div class="flrow hidden" id="flrow">
-        <span class="flchip late">LATE <b id="laten">0</b></span>
-        <span class="flchip fast">EARLY <b id="fastn">0</b></span>
-      </div>
-      <div class="feedrow">
-        <span class="fcstat hidden" id="fcstat">FC</span>
-        <div class="feed" id="feed"></div>
-      </div>
+
     </div>
 
-    <div id="status">disconnected</div>
   </div>
 
   <div id="srbar">
@@ -820,8 +1559,9 @@
   </div>
 
   <div id="queuePanel" class="sidecard hidden">
-    <div id="qnormalWrap">
+    <i class="shine"></i><div id="qnormalWrap">
       <div id="qnormal" class="qgrid"></div>
+      <div id="qnone" class="qnone hidden">暂无点歌 · 在聊天框发送曲名即可点歌</div>
     </div>
     <div id="qselect" class="qselect hidden">
       <div id="qminis" class="qminis"></div>
@@ -845,6 +1585,14 @@
 <script>
 (function () {
   'use strict';
+  // 皮肤：默认 game（游戏字体 + 彩色判定条），?skin=classic 为原版
+  var SKIN_CLASSIC = location.search.indexOf('skin=classic') >= 0;
+  if (!SKIN_CLASSIC) document.documentElement.className += ' skin-game';
+  // 原版皮肤保留 EARLY 文案；game 皮肤用游戏里的 FAST
+  if (SKIN_CLASSIC) {
+    var fastChip = document.querySelector('.flchip.fast');
+    if (fastChip && fastChip.firstChild) fastChip.firstChild.nodeValue = 'EARLY ';
+  }
   var ua = navigator.userAgent || '';
   var phoneUA = /iPhone|iPod|iPad|Tablet|Windows Phone|Android.*Mobile|Mobile/i.test(ua);
   var touchNarrow = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches &&
@@ -852,10 +1600,15 @@
   if (phoneUA || touchNarrow) document.documentElement.classList.add('mobile');
   var $ = function (id) { return document.getElementById(id); };
   var panel = $('panel'), feedEl = $('feed');
+  if (!feedEl) feedEl = document.createElement('div'); // 判定流已移除，占位避免空引用
   var srToggleEl = $('srToggle');
   var queuePanel = $('queuePanel'), qnormalEl = $('qnormal'),
       qselectEl = $('qselect'), qminisEl = $('qminis'), qchoicesEl = $('qchoices'),
       qmsgEl = $('qmsg'), mcListEl = $('mcList');
+  // 队列卡并入面板，保证与 SCORE / JUDGE 同一层、同一内距
+  if (queuePanel && panel && queuePanel.parentNode !== panel) panel.appendChild(queuePanel);
+  // 点歌板开关并入队列卡右上角
+  if (queuePanel && $('srbar')) queuePanel.insertBefore($('srbar'), queuePanel.firstChild);
   var mcInputEl = $('mcInput'), mcSendEl = $('mcSend'), mcStatusEl = $('mcStatus');
   var lastChatSig = '';
   var qEls = {}, qSlots = [], qMoreEl = null;
@@ -872,11 +1625,17 @@
   var DIFF_NAMES = ['BASIC', 'ADVANCED', 'EXPERT', 'MASTER', 'ULTIMA', "WORLD'S END"];
   var DIFF_COLORS = ['#5aff9a', '#ffb03a', '#ff5a3c', '#b45aff', '#ff3b3b', '#ff5ad8'];
   // 点歌卡片/候选区配色：ULTIMA 与上方难度框一致（棕红）
+  function hexA(hex, a) {
+    var h = String(hex).replace('#', '');
+    if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+    var n = parseInt(h, 16);
+    return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+  }
   var QDIFF_COLORS = DIFF_COLORS.slice();
   QDIFF_COLORS[4] = '#e8eaf0';
   var SHORT = { JUSTICE_CRITICAL: 'JC', JUSTICE: 'JU', ATTACK: 'AT', MISS: 'MI' };
 
-  var lastEvent = 0, lastSongId = -1, lastSongChange = 0, lastShown = false;
+  var lastEvent = 0, lastInGame = false, lastSongId = -1, lastSongChange = 0, lastShown = false;
 
   // 封面加载失败时带时间戳重试一次（绕过浏览器对旧 404 的缓存）
   (function () {
@@ -893,6 +1652,163 @@
   function pad(n) {
     var v = Number(n) || 0;
     return v < 10 ? '0' + v : String(v);
+  }
+
+  // —— 皮肤：默认 game（游戏内字体）；?skin=classic 回到原版字体 ——
+  var SKIN = (location.search.indexOf('skin=classic') >= 0) ? 'classic' : 'game';
+  var SCORE_D = null, JD = null, RANK_IMG = null, DECO2 = null;
+  if (SKIN === 'game') {
+    // 数字按游戏实际字号取对应 RFZ 位图（18/24/32pt 原生尺寸，1:1 不缩放）
+    var DGS = { 18: null, 24: null, 32: null };
+    [18, 24, 32].forEach(function (sz) {
+      fetch('glyphs' + sz + '.json').then(function (r) { return r.json(); })
+        .then(function (j) { DGS[sz] = j; }).catch(function () {});
+    });
+    fetch('deco.json').then(function (r) { return r.json(); }).then(function (j) {
+      var de = document.documentElement;
+      if (j.star) de.style.setProperty('--deco-star', 'url(' + j.star.m + ')');
+      if (j.bolt) de.style.setProperty('--deco-bolt', 'url(' + j.bolt.m + ')');
+      if (j.squig) de.style.setProperty('--deco-squig', 'url(' + j.squig.m + ')');
+    }).catch(function () {});
+    fetch('logo.json').then(function (r) { return r.json(); })
+      .then(function (j) { if (j && j.m) $('blogo').src = j.m; }).catch(function () {});
+    fetch('patterns.json').then(function (r) { return r.json(); }).then(function (j) {
+      var de = document.documentElement;
+      if (j.dots) de.style.setProperty('--pat-dots', 'url(' + j.dots.m + ')');
+      if (j.stripe) de.style.setProperty('--pat-stripe', 'url(' + j.stripe.m + ')');
+      if (j.stripey) de.style.setProperty('--pat-stripey', 'url(' + j.stripey.m + ')');
+    }).catch(function () {});
+
+    fetch('judge_digits.json').then(function (r) { return r.json(); })
+      .then(function (j) { JD = j; }).catch(function () {});
+    fetch('score_digits.json').then(function (r) { return r.json(); })
+      .then(function (j) { SCORE_D = j.chars; }).catch(function () {});
+    // 评级字母（CHU_UI_Result_Rank_00 原素材）
+    fetch('rank.json').then(function (r) { return r.json(); })
+      .then(function (j) {
+        RANK_IMG = j;
+        var a = $('rankart');
+        if (a) { a._rk = null; if (a._rkTxt) a.innerHTML = rankHTML(a._rkTxt); }
+        fitScore();
+      }).catch(function () {});
+    // 装饰素材（CHU_UI_Common_BK_01 / BK_02）
+    fetch('deco2.json').then(function (r) { return r.json(); })
+      .then(function (j) {
+        DECO2 = j;
+        var st = document.getElementById('stack');
+        if (!st || !j) return;
+        st.style.setProperty('--d1', 'url(' + j.star.m + ')');
+        st.style.setProperty('--d2', 'url(' + j.squig.m + ')');
+        st.style.setProperty('--d3', 'url(' + j.plus.m + ')');
+        st.style.setProperty('--d4', 'url(' + j.bolt.m + ')');
+        st.style.setProperty('--d5', 'url(' + j.tri.m + ')');
+        st.style.setProperty('--d6', 'url(' + j.star2.m + ')');
+        st.style.setProperty('--d7', 'url(' + j.zig.m + ')');
+        st.style.setProperty('--d8', 'url(' + j.spark.m + ')');
+        st.style.setProperty('--d9', 'url(' + j.square.m + ')');
+      }).catch(function () {});
+    // 判定行底图：直接切自游戏结算画面的贴图
+    fetch('judge_rows.json').then(function (r) { return r.json(); })
+      .then(function (j) {
+        var jd = document.querySelector('.judges');
+        if (jd && j.panel) jd.style.setProperty('--panel', 'url(' + j.panel.m + ')');
+      }).catch(function () {});
+  }
+
+  function glyphHTML(s, j) {
+    var out = '';
+    for (var i = 0; i < s.length; ++i) {
+      var c = s.charAt(i), g = j && j.chars[c];
+      if (!g) { out += c; continue; }
+      out += '<i class="dg" style="--m:url(\'' + g.m + '\');' +
+             'width:' + g.w + 'px;height:' + g.h + 'px;' +
+             'vertical-align:' + (-(g.h - j.ascent)) + 'px"></i>';
+    }
+    return out;
+  }
+
+  // 游戏里的数字都是图集里的“金属数字”贴图（白→灰渐变 + 镀层边）
+  function setDig(el, v, cls) {
+    var str = String(v);
+    if (!SCORE_D) { if (el.innerHTML !== str) el.innerHTML = str; return; }
+    if (el._dv === str && el._dc === cls) return;
+    el._dv = str; el._dc = cls;
+    var out = '';
+    for (var i = 0; i < str.length; ++i) {
+      var c = str.charAt(i), g = SCORE_D[c];
+      out += g ? '<img class="' + cls + (c === ',' ? ' comma' : '') + '" data-c="' + c + '" src="' + g.m + '" alt="">' : c;
+    }
+    el.innerHTML = out;
+  }
+  function fmtScore(n) {
+    var t = String(n), out = '', c = 0;
+    for (var i = t.length - 1; i >= 0; --i) {
+      out = t.charAt(i) + out;
+      if (++c % 3 === 0 && i > 0) out = ',' + out;
+    }
+    return out;
+  }
+  // 评级贴图拼接
+  function rankHTML(name) {
+    if (!RANK_IMG) return '';
+    var out = '', i, ch;
+    for (i = 0; i < name.length; ++i) {
+      ch = name.charAt(i);
+      if (ch === '+') { out += '<img class="plus" src="' + RANK_IMG.plus.m + '" alt="">'; continue; }
+      var g = RANK_IMG[ch];
+      out += g ? '<img src="' + g.m + '" alt="">' : ch;
+    }
+    return out;
+  }
+
+  // 分数整行按卡片宽度等比缩放
+  function fitScore() {
+    var card = document.querySelector('.scoreline');
+    var row = document.querySelector('.scrow');
+    if (!card || !row) return;
+    row.style.transform = '';
+    var avail = card.clientWidth - 40;
+    var w = row.scrollWidth || row.offsetWidth;
+    if (w > avail && w > 0) row.style.transform = 'scale(' + (avail / w).toFixed(3) + ')';
+  }
+  window.addEventListener('resize', function () { try { fitScore(); } catch (e) {} });
+
+  function setScore(el, v) { setDig(el, fmtScore(v | 0), 'sd'); }
+  // 每个判定行用游戏里对应颜色的数字贴图（JC 金青 / JU 橙 / AT 绿 / MISS 银）
+  function setJudge(el, v, setName, cls) {
+    var str = String(v);
+    var set = JD && JD[setName];
+    if (!set) { if (el.innerHTML !== str) el.innerHTML = str; return; }
+    var key = setName + '|' + str + '|' + cls;
+    if (el._jk === key) return;
+    el._jk = key;
+    var out = '';
+    for (var i2 = 0; i2 < str.length; ++i2) {
+      var c = str.charAt(i2), g = set[c];
+      out += g ? '<img class="' + cls + '" src="' + g.m + '" alt="">' : c;
+    }
+    el.innerHTML = out;
+  }
+
+  function setMaxCombo(el, v) {
+    if (!SCORE_D || !v) { el.innerHTML = ''; return; }
+    if (el._dv === v) return;
+    el._dv = v;
+    var str = String(v), out = '<i class="mslash">/</i>';
+    for (var i2 = 0; i2 < str.length; ++i2) {
+      var c = str.charAt(i2), g = SCORE_D[c];
+      out += g ? '<img class="sd mc" src="' + g.m + '" alt="">' : c;
+    }
+    el.innerHTML = out;
+  }
+
+  function setGlyph(el, v, size) {
+    var j = (typeof DGS === 'undefined') ? null : DGS[size || 24];
+    var s = String(v);
+    if (j && el._gv === s && el._gs === size) return;
+    el._gv = j ? s : null;
+    el._gs = size;
+    el.innerHTML = j ? glyphHTML(s, j) : s;
   }
 
   // 把 #rrggbb 按比例压暗
@@ -1032,7 +1948,7 @@
     var row = $('diffrow');
     row.innerHTML = '<div class="standby-diffs"><b>--</b><b>--</b><b>--</b><b>--</b></div>';
     row.__segs = null;
-    $('diffbar').style.background = 'rgba(255,255,255,.10)';
+
     panel.style.borderColor = 'rgba(255,255,255,0.10)';
     panel.classList.add('standby');
     panel.classList.remove('preview');
@@ -1053,9 +1969,6 @@
         marqBuild($('artist'), artistText)
       ]);
     }
-    // BPM 仅用于内部律动节奏，不在界面上显示
-    var bp = $('bpm');
-    bp.style.display = 'none';
 
     var jk = $('jacket');
     if (song.known && g.music_id > 0) {
@@ -1083,7 +1996,8 @@
         var seg0 = document.createElement('div');
         seg0.className = 'diffseg';
         seg0.setAttribute('data-d', k);
-        seg0.innerHTML = '<span class="lv">' + DIFF_NAMES[k] + '</span><span class="cv"></span>';
+        seg0.innerHTML = '<span class="lv">' + DIFF_NAMES[k] + '</span><span class="cv"></span>'
+;
         if (k < 2) stack.appendChild(seg0); else row.appendChild(seg0);
         segs.push(seg0);
       }
@@ -1130,7 +2044,7 @@
       if (isCur) curColor = DIFF_COLORS[i];
     }
 
-    $('diffbar').style.background = curColor || 'transparent';
+
     panel.style.borderColor = curColor ? curColor + '80' : 'rgba(255,255,255,0.10)';
   }
 
@@ -1210,6 +2124,13 @@
 
   // 队列卡片布局：普通 4 张；悬停时选中卡展开到 2/3，其余卡右侧叠放后扇形展开
   function layoutQueue() {
+    var qnoneEl = document.getElementById('qnone');
+    if (!lastQueueItems.length) {
+      if (qnormalEl.children.length) qnormalEl.innerHTML = '';
+      if (qnoneEl) qnoneEl.classList.remove('hidden');
+      return;
+    }
+    if (qnoneEl) qnoneEl.classList.add('hidden');
     var W = qnormalEl.clientWidth || 542;
     var H = 166, gap = 10;
     var more = lastQueueItems.length > 4;
@@ -1231,6 +2152,7 @@
       if (isCard && Number(el.dataset.reqId) === hover) {
         el.classList.add('expanded');
         el.classList.remove('stacked');
+        el.classList.remove('fan');
         el.style.left = '0px';
         el.style.top = '0px';
         el.style.width = Math.round(W * 0.68) + 'px';
@@ -1248,9 +2170,10 @@
           continue;
         }
         var j = other++;
+        el.classList.add('fan');
         if (j > 0) el.classList.add('stacked'); else el.classList.remove('stacked');
         var fanStep = 50;
-        var left = W - cardW - 2 - (queueFan ? j * 10 : 0);
+        var left = W - cardW - 10 - (queueFan ? j * 10 : 0);
         var top = 2 + (queueFan ? j * 4 : 0);
         el.style.left = left + 'px';
         el.style.top = top + 'px';
@@ -1264,6 +2187,7 @@
       } else {
         el.classList.remove('expanded');
         el.classList.remove('stacked');
+        el.classList.remove('fan');
         el.style.left = (i * (cardW + gap)) + 'px';
         el.style.top = '0px';
         el.style.width = cardW + 'px';
@@ -1456,6 +2380,7 @@
       card.classList.add('diff');
       card.classList.remove('no-diff');
       card.style.borderColor = col;
+      card.style.setProperty('--dband', hexA(col, diff === 4 ? 0.22 : 0.30));
       card.style.setProperty('--dc', accent);
       card.style.setProperty('--rc', accent);
       qd.textContent = DIFF_NAMES[diff];
@@ -1759,13 +2684,53 @@
     return s;
   }
 
+  // 队列卡：点标题栏折叠 / 展开
+  (function () {
+    var qp = document.getElementById('queuePanel');
+    if (!qp) return;
+    var btn = document.createElement('button');
+    btn.className = 'qfold'; btn.type = 'button';
+    btn.setAttribute('aria-label', '折叠或展开点歌队列');
+    qp.appendChild(btn);
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (qp.classList.contains('hidden')) return;
+      qp.classList.toggle('collapsed');
+      if (!qp.classList.contains('collapsed')) layoutQueue();
+    });
+    window.__qExpand = function () { qp.classList.remove('collapsed'); };
+    if (/[?&]fold=1/.test(location.search)) setTimeout(function () { qp.classList.add('collapsed'); }, 2500);
+  })();
+
+  // 窄窗口自适应：整体缩放，避免 OBS 源过窄时布局崩掉
+  (function () {
+    var BASE = 586;
+    function fit() {
+      var w = window.innerWidth;
+      if (w && w < BASE) {
+        document.body.style.width = BASE + 'px';
+        document.body.style.zoom = (w / BASE);
+      } else {
+        document.body.style.width = '';
+        document.body.style.zoom = '';
+      }
+    }
+    window.addEventListener('resize', fit);
+    fit();
+  })();
+
   function applyQueue(r, p) {
+    if (window.__qdemo && !(r && r.__demo)) return; // 调试：忽略真实状态
+    if (location.search.indexOf('board=1') >= 0 && location.search.indexOf('qdemo=1') < 0) { queuePanel.classList.remove('hidden'); return; }
+    // 关闭点歌时不隐藏整张卡，否则卡里的开关会跟着消失、再也点不开
     if (!r || !r.enabled) {
-      queuePanel.classList.add('hidden');
+      queuePanel.classList.remove('hidden');
+      queuePanel.classList.add('off');
       lastQueueSig = null;
       return;
     }
     queuePanel.classList.remove('hidden');
+    queuePanel.classList.remove('off');
     var all = r.items || [];
 
     if (p && p.active) {
@@ -1806,6 +2771,7 @@
     if (qsig !== lastQueueSig) {
       lastQueueSig = qsig;
       renderSlots(all, r.max);
+      if (window.__qExpand) window.__qExpand();
     }
 
     if (r.last && r.last.status && r.last.t) {
@@ -1826,6 +2792,10 @@
     var srOn = !!(s.request && s.request.enabled);
     srToggleEl.classList.toggle('on', srOn);
     var inGame = !!g.in_game || !!s.demo;
+    // 播放中：选中难度块的边框渐变色开始流动
+    var stackEl = document.getElementById('stack');
+    if (stackEl) stackEl.classList.toggle('in-game', !!inGame);
+    lastInGame = inGame;
     var hasSong = !!song.known && g.music_id > 0;
 
     $('demobadge').style.display = s.demo ? '' : 'none';
@@ -1854,67 +2824,130 @@
             panel.classList.remove('song-fade');
             panel.classList.add('song-in');
             setTimeout(function () { panel.classList.remove('song-in'); }, 460);
-          }, 170);
+          }, inGame ? 170 : 40);
         })(song, g);
       }
       if (!swapLocked) applySongInfo(song, g);
     }
 
-    $('score').textContent = pad(g.score);
+    // 选歌界面的历史最佳（Hooked；换曲由插件清零）
+    (function () {
+      var be = $('bestbadge'), bs = g.best_score | 0;
+      if (!be) return;
+      if (bs > 0) {
+        be.style.display = '';
+        be.textContent = 'BEST ' + bs.toLocaleString('en-US');
+      } else {
+        be.style.display = 'none';
+      }
+    })();
+
+    setScore($('score'), g.score | 0);
     var cNow = g.combo | 0, mcNow = g.max_combo | 0;
-    $('combo').textContent = pad(cNow);
+    setDig($('combo'), cNow, 'sd cmb');
     // 追平最大连击 → 数字放大强调
     $('combo').classList.toggle('full', mcNow > 0 && cNow >= mcNow);
     var mxe = $('maxcombo');
-    mxe.textContent = mcNow > 0 ? ' / ' + pad(mcNow) : '';
+    setMaxCombo(mxe, mcNow);
     // 当前连击已达最大值 → 收起分母；否则显示 combo / max
     mxe.classList.toggle('off', !(mcNow > 0 && cNow < mcNow));
-    $('jc').textContent = pad(g.justice_crit);
-    $('ju').textContent = pad(g.justice);
-    $('at').textContent = pad(g.attack);
-    $('mi').textContent = pad(g.miss);
+    setJudge($('jc'), g.justice_crit | 0, 'jc', 'jd');
+    setJudge($('ju'), g.justice | 0, 'ju', 'jd');
+    setJudge($('at'), g.attack | 0, 'at', 'jd');
+    setJudge($('mi'), g.miss | 0, 'mi', 'jd');
+    // 最大连击 / ACC / 理论最高分 / 评级（CHUNITHM 权重：JC 101% · J 100% · AT 50%）
+    (function () {
+      var jcN = g.justice_crit | 0, juN = g.justice | 0;
+      var atN = g.attack | 0, miN = g.miss | 0;
+      var judged = jcN + juN + atN + miN;
+      var acc = judged ? (jcN * 1.01 + juN + atN * 0.5) / judged * 100 : 0;
+      var ae = $('accv'), me = $('maxv');
+      if (ae) ae.textContent = judged ? acc.toFixed(2) + '%' : '--.--%';
+      if (me) me.textContent = mcNow;
 
-    // EARLY / LATE：总数徽章 + 各判定数字两侧小字
-    var nFast = g.fast | 0, nLate = g.late | 0;
-    var flRow = $('flrow');
-    if (nFast + nLate > 0) {
-      flRow.classList.remove('hidden');
-      $('fastn').textContent = nFast;
-      $('laten').textContent = nLate;
-      var pairs = [['fjc', 'ljc', g.fast_jc, g.late_jc],
-                   ['fju', 'lju', (g.fast | 0) - (g.fast_jc | 0) - (g.fast_attack | 0), (g.late | 0) - (g.late_jc | 0) - (g.late_attack | 0)],
-                   ['fat', 'lat', g.fast_attack, g.late_attack]];
-      for (var pi = 0; pi < pairs.length; ++pi) {
-        var fp = pairs[pi];
-        var fe = $(fp[0]), le = $(fp[1]);
-        var fv = Math.max(0, fp[2] | 0), lv = Math.max(0, fp[3] | 0);
-        fe.textContent = fv; le.textContent = lv;
-        fe.className = 'fl fast' + (fv ? '' : ' zero');
-        le.className = 'fl late' + (lv ? '' : ' zero');
+      // 评级边界（CHUNITHM NEW 及以后）
+      function rankOf(sc) {
+        if (sc >= 1009000) return ['SSS+', 'sssp'];
+        if (sc >= 1007500) return ['SSS', 'sss'];
+        if (sc >= 1005000) return ['SS+', 'ssp'];
+        if (sc >= 1000000) return ['SS', 'ss'];
+        if (sc >= 990000)  return ['S+', 'sp'];
+        if (sc >= 975000)  return ['S', 's'];
+        if (sc >= 950000)  return ['AAA', 'aaa'];
+        if (sc >= 925000)  return ['AA', 'aa'];
+        if (sc >= 900000)  return ['A', 'a'];
+        if (sc >= 800000)  return ['BBB', 'bbb'];
+        if (sc >= 700000)  return ['BB', 'bb'];
+        if (sc >= 600000)  return ['B', 'b'];
+        if (sc >= 500000)  return ['C', 'c'];
+        return ['D', 'd'];
       }
-    } else {
-      flRow.classList.add('hidden');
-    }
 
-    // 固定达成状态（逐级降档）：
-    //   全是 JC → JC
-    //   出现非 JC（JUSTICE）→ 降为 AJ
-    //   出现非 JC/J（ATTACK）→ 降为 FC
-    //   出现 MISS → 变灰，不再评级
-    var fc = $('fcstat');
+      // 理论最高分：剩余音符全按 JUSTICE CRITICAL 计算的最终分数
+      var nt = g.note_total | 0, th = 0;
+      // 优先用游戏自己算的理论最高分（hook 捕获），没有再用本地推算兜底
+      var ms = g.max_score | 0;
+      if (ms > 0 && ms <= 1010000 && ms >= (g.score | 0)) {
+        th = ms;
+      } else if (nt > 0 && judged <= nt) {
+        th = Math.round((1.01 * jcN + juN + 0.5 * atN + 1.01 * (nt - judged)) / nt * 1000000);
+        if (th > 1010000) th = 1010000;
+      }
+      var art = $('rankart');
+      if (art) {
+        var rt = rankOf(th || (g.score | 0));
+        art._rkTxt = rt[0];
+        if (RANK_IMG && art._rk !== rt[0]) {
+          art._rk = rt[0];
+          art.innerHTML = rankHTML(rt[0]);
+          art.classList.remove('pop');
+          void art.offsetWidth;
+          art.classList.add('pop');
+        }
+        art.classList.toggle('hidden', !th && !RANK_IMG);
+      }
+      fitScore();
+    })();
+
+    // 右侧双向条形图：三组判定的 LATE（左）/ FAST（右）分布
+    (function () {
+      var chart = $('jchart');
+      if (!chart) return;
+      var ljc = g.late_jc | 0, fjc = g.fast_jc | 0;
+      var lat = g.late_attack | 0, fat = g.fast_attack | 0;
+      var lju = Math.max(0, (g.late | 0) - ljc - lat);
+      var fju = Math.max(0, (g.fast | 0) - fjc - fat);
+      var data = [[ljc, fjc], [lju, fju], [lat, fat]];
+      var max = 1, i, j;
+      for (i = 0; i < 3; ++i) for (j = 0; j < 2; ++j) if (data[i][j] > max) max = data[i][j];
+      var rows = chart.querySelectorAll('.jrow');
+      for (i = 0; i < rows.length && i < 3; ++i) {
+        var bl = rows[i].querySelector('.jbl'), br = rows[i].querySelector('.jbr');
+        var cl = rows[i].querySelector('.cl'), cr = rows[i].querySelector('.cr');
+        var lv = data[i][0], rv = data[i][1];
+        if (bl) bl.style.width = (lv / max * 50) + '%';
+        if (br) br.style.width = (rv / max * 50) + '%';
+        if (cl) cl.textContent = lv;
+        if (cr) cr.textContent = rv;
+        rows[i].style.opacity = (lv || rv) ? '1' : '.45';
+      }
+    })();
+    // 达成状态：全 JC → ALL JUSTICE，非 JC 但仍无断连 → FULL COMBO
     var nJC = g.justice_crit | 0, nJ = g.justice | 0;
     var nAT = g.attack | 0, nMI = g.miss | 0;
     var total = nJC + nJ + nAT + nMI;
-    var tag = '', cls = 'fcstat';
+    var tag = '';
     if (total > 0) {
-      if (nMI > 0) { tag = '/'; cls += ' dead'; }
-      else if (nAT > 0) { tag = 'FC'; cls += ' fc'; }
-      else if (nJ > 0) { tag = 'AJ'; cls += ' aj'; }
-      else { tag = 'JC'; cls += ' jc'; }
+      if (nMI > 0) tag = '';
+      else if (nAT > 0) tag = 'FC';
+      else if (nJ > 0) tag = 'AJ';
+      else tag = 'AJC';                 /* 全 CRITICAL */
     }
-    if (tag) { fc.textContent = tag; fc.className = cls; }
-    else { fc.className = 'fcstat hidden'; }
-
+    var slot = $('cmslot');
+    if (slot) {
+      slot.__tag = tag;
+      renderComboBadge(slot, tag);
+    }
     // 判定流：切歌或计数清零时一起清空
     if (total === 0) feedEl.innerHTML = '';
 
@@ -1922,9 +2955,33 @@
     panel.classList.toggle('state-play', inGame);
     panel.classList.remove('hidden');
 
-    $('status').textContent = 'connected · ' + (s.plugin ? s.plugin.profile : '') +
-      (s.plugin && !s.plugin.signatures ? ' · SIGS MISSING' : '');
+
   }
+
+  /* 连击徽章：使用游戏素材 CHU_UI_Common_batch_00 的 FULL COMBO / ALL JUSTICE / ABSOLUTE */
+  function renderComboBadge(slot, tag) {
+    var B = window.COMBO_BADGES;
+    if (!slot) return;
+    tag = tag || '';
+    /* 状态没变就直接返回，避免每帧重建 <img> 造成闪烁 / 卡顿 */
+    if (slot.__shown === tag) return;
+    slot.__shown = tag;
+    /* 没有 FC / AJ / AJC 时留空，但槽位宽度固定，后面的 COMBO 不会移动 */
+    if (!tag) { slot.innerHTML = ''; return; }
+    var key = tag === 'AJC' ? 'ajc' : (tag === 'FC' ? 'fc' : 'aj');
+    var src = B && B[key] && B[key].m;
+    if (!src) { slot.innerHTML = ''; return; }
+    slot.innerHTML = '';
+    var im = document.createElement('img');
+    im.src = src;
+    im.alt = tag;
+    slot.appendChild(im);
+  }
+  fetch('combo_badges.json').then(function (r) { return r.json(); }).then(function (d) {
+    window.COMBO_BADGES = d;
+    var slot = $('cmslot');
+    if (slot) renderComboBadge(slot, slot.__tag || '');
+  }).catch(function () {});
 
   function connect() {
     var es = new EventSource(API + '/events');
@@ -1937,7 +2994,7 @@
     };
     es.onerror = function () {
       es.close();
-      $('status').textContent = 'SSE lost · retrying…';
+
       setTimeout(connect, 2000);
     };
   }
@@ -1950,6 +3007,29 @@
       .catch(function () {});
   });
 
+  if (location.search.indexOf('board=1') >= 0) queuePanel.classList.remove('hidden');
+  if (location.search.indexOf('qdemo=1') >= 0) {
+    setTimeout(function () {
+      window.__qdemo = true;
+      applyQueue({ __demo: true, enabled: true, items: [
+        { id: 1, song_id: 928, difficulty: 3, 'const': 14.9, title: "DON'T STOP ROCKIN' ~Ouroboros~", artist: 'cosMo@暴走P', playing: false },
+        { id: 2, song_id: 1234, difficulty: 4, 'const': 15.2, title: 'the EmpErroR', artist: 'sasakure.UK', playing: false },
+        { id: 3, song_id: 777, difficulty: 2, 'const': 13.4, title: '花たちに希望を', artist: 'Sound piercer', playing: false },
+        { id: 4, song_id: 555, difficulty: 0, 'const': 8.5, title: '花と、雪と、ドラムンベース。', artist: 'kanone', playing: false },
+        { id: 5, song_id: 777, difficulty: 3, 'const': 14.2, title: 'ナイト・オブ・ナイツ (USAO Remix)', artist: 'ビートまりお', playing: false },
+        { id: 6, song_id: 928, difficulty: 2, 'const': 13.9, title: 'Grievous Lady', artist: 'Team Grimoire', playing: false }
+      ] }, null);
+      if (location.search.indexOf('qdel=1') >= 0) {
+        setTimeout(function () {
+          var ds = document.querySelectorAll('.qdel');
+          for (var qi = 0; qi < ds.length; ++qi) { ds[qi].style.opacity = '1'; ds[qi].style.transform = 'scale(1)'; }
+        }, 700);
+      }
+      if (location.search.indexOf('qhover=1') >= 0) {
+        setTimeout(function () { queueHoverId = 1; layoutQueue(); }, 700);
+      }
+    }, 600);
+  }
   // 首屏先显示待机牌，状态到达后按游玩/空闲切换
   standbyMode = true;
   setStandby();
@@ -1984,9 +3064,9 @@
       pushEvent({ judge: ev, delta_ms: Math.round((r * 24) - 12) });
       applyState({
         demo: true,
-        game: { in_game: true, music_id: 928, difficulty: 3, score: dscore,
+        game: { in_game: true, music_id: 928, difficulty: 3, score: dscore, note_total: 1280, best_score: 1009231, max_score: 1009800,
                 combo: dcombo, max_combo: dcombo, justice_crit: djc, justice: dju,
-                attack: dat, miss: dmi },
+                attack: dat, miss: dmi, fast: dju, late: dmi },
         song: { known: true, title: demoTitles[di], artist: demoArtists[di],
                 bpm: 174, difficulty_name: 'MASTER',
                 consts: [3.0, 6.0, 10.5, 13.7, null, null], we_tag: '' },
@@ -2002,9 +3082,13 @@
   } else {
     try { connect(); } catch (e) { /* EventSource 不可用时靠轮询 */ }
     pollState();
+    // 选歌预览：未进入游玩时快速跟随当前选中歌曲（本地请求，开销很小）
     setInterval(function () {
-      if (Date.now() - lastEvent < 5000) return;
-      pollState();
+      if (!lastInGame) pollState();
+    }, 120);
+    // 兜底：长时间没有判定事件时慢速轮询
+    setInterval(function () {
+      if (lastInGame && Date.now() - lastEvent >= 5000) pollState();
     }, 1500);
   }
 

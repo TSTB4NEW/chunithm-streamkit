@@ -17,6 +17,8 @@ static void AppendGameJson(std::string& s, const Snapshot& snap) {
     s += "\"music_id\":" + std::to_string(snap.music_id) + ",";
     s += "\"difficulty\":" + std::to_string(snap.difficulty) + ",";
     s += "\"score\":" + std::to_string(snap.score) + ",";
+    s += "\"max_score\":" + std::to_string(snap.max_score) + ",";
+    s += "\"best_score\":" + std::to_string(snap.best_score) + ",";
     s += "\"combo\":" + std::to_string(snap.combo) + ",";
     s += "\"max_combo\":" + std::to_string(snap.max_combo) + ",";
     s += "\"note_total\":" + std::to_string(snap.note_total) + ",";
@@ -380,7 +382,9 @@ std::string App::AddSongRequest(const std::string& user, unsigned uid,
     pending.difficulty = diff;
     pending.t_ms = now_ms();
     pending.candidates.clear();
-    for (size_t i = 0; i < matches.size() && i < 4; ++i)
+    // 候选上限：与前端选择面板的列数保持一致
+    constexpr size_t kMaxCandidates = 6;
+    for (size_t i = 0; i < matches.size() && i < kMaxCandidates; ++i)
         pending.candidates.push_back(makeCandidate(*matches[i].song));
 
     request_last.status = "select";

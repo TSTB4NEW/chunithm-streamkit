@@ -124,6 +124,17 @@ difficulty.type=u32
 ; 全内存扫描兜底：会周期性卡顿，默认关闭
 difficulty.scan=0
 
+; —— 游玩状态（进入谱面即置位，早于第一个判定）——
+; 游戏把「本局事件计数」存在一张 75 项的计数器表里（清空函数：mov ecx,0x4B; lea edi,[表基址]; rep stosd），
+; 进入谱面时计数器[37] 会被 +1。用特征码定位「表基址」再加索引偏移，不写死任何地址：
+;   sig 命中点 +8 是 inc dword [eax*4 + 表基址] 里的 disp32 → abs32 解析出基址
+;   addr_add = 0x94 (37*4) → 计数器[37]；值 != 0 视为已开始游玩
+play_state.sig=83 F8 4B 73 07 FF 04 85 ?? ?? ?? ?? 68
+play_state.resolve=abs32
+play_state.extra=8
+play_state.addr_add=0x94
+play_state.type=u32
+
 event_source=auto
 
 [mate-2.50.ring]

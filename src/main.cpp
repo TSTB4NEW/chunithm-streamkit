@@ -52,15 +52,40 @@ static std::string DllDir() {
 }
 
 // 启动早期跟踪（调试用）：在任何依赖初始化前直接写文件
+static std::vector<std::string>& EarlyBootLines() {
+    static std::vector<std::string> v;
+    return v;
+}
+
+// 加载器锁内（DllMain）不做任何文件 I/O：capnhook 的 iohook 未初始化时
+// 拦截文件 API 会断言。先把行缓冲在内存里，工作线程起来后再落盘。
 static void BootTrace(const char* what) {
+    char line[512];
+    snprintf(line, sizeof(line), "[%u] %s", (unsigned)GetTickCount(), what);
+    if (!csk::IoReady()) {
+        EarlyBootLines().push_back(line);
+        return;
+    }
     char exeBuf[MAX_PATH]{};
     GetModuleFileNameA(nullptr, exeBuf, sizeof(exeBuf));
     std::string p = DataDirOf(DirOf(exeBuf)) + "\\logs\\csk_boot.log";
     FILE* f = fopen(p.c_str(), "a");
     if (f) {
-        fprintf(f, "[%u] %s\n", (unsigned)GetTickCount(), what);
+        fprintf(f, "%s\n", line);
         fclose(f);
     }
+}
+
+static void FlushEarlyBoot() {
+    if (EarlyBootLines().empty()) return;
+    char exeBuf[MAX_PATH]{};
+    GetModuleFileNameA(nullptr, exeBuf, sizeof(exeBuf));
+    std::string p = DataDirOf(DirOf(exeBuf)) + "\\logs\\csk_boot.log";
+    FILE* f = fopen(p.c_str(), "a");
+    if (!f) return;
+    for (auto& l : EarlyBootLines()) fprintf(f, "%s\n", l.c_str());
+    fclose(f);
+    EarlyBootLines().clear();
 }
 
 static void TerminateHandler() {
@@ -142,6 +167,12 @@ static void DemoThread() {
 }
 
 static void WorkerThread() {
+    // 工作线程：先等游戏主流程跑起来，避开 capnhook iohook 的初始化窗口，
+    // 期间不做任何文件 I/O（ini 读取也在等待之后）。
+    Sleep(1500);
+    csk::IoReady() = true;
+    FlushEarlyBoot();
+    csk::hook::FlushEarlyLog();
     BootTrace("worker start");
     App& app = App::Get();
     app.version = "0.1.0";
@@ -250,6 +281,10 @@ static void WorkerThread() {
     bool comboHookOk = wantComboHook ? hook::InstallCombo() : false;
     bool songHookOk = wantSongHook ? hook::InstallSong() : false;
     bool diffHookOk = wantDiffHook ? hook::InstallDiff() : false;
+    bool wantMaxScoreHook = parse_i32(ini.Get(profileName, "max_score.hook", "1"), 1) != 0;
+    bool maxScoreHookOk = wantMaxScoreHook ? hook::InstallMaxScore() : false;
+    bool wantBestScoreHook = parse_i32(ini.Get(profileName, "best_score.hook", "1"), 1) != 0;
+    bool bestScoreHookOk = wantBestScoreHook ? hook::InstallBestScore() : false;
     // FAST/LATE 计数 hook：捕获统计数组元素地址，用于定位各计数器偏移
     bool flHookOk = hook::InstallFastLate();
     if (!flHookOk) {
@@ -261,6 +296,8 @@ static void WorkerThread() {
     L().Info("combo hook: %s", comboHookOk ? "installed" : (wantComboHook ? "failed" : "disabled"));
     L().Info("song hook: %s", songHookOk ? "installed" : (wantSongHook ? "failed" : "disabled"));
     L().Info("diff hook: %s", diffHookOk ? "installed" : (wantDiffHook ? "failed" : "disabled"));
+    L().Info("max_score hook: %s", maxScoreHookOk ? "installed" : (wantMaxScoreHook ? "failed" : "disabled"));
+    L().Info("best_score hook: %s", bestScoreHookOk ? "installed" : (wantBestScoreHook ? "failed" : "disabled"));
 
     // —— HTTP 先启动：内存扫描可能耗时，先让 OBS 能连上 ——
     uint16_t port = (uint16_t)parse_i32(ini.Get("server", "port", "8770"), 8770);

@@ -9,12 +9,29 @@
 #include <cstring>
 #include <cstdarg>
 #include <string>
+#include <vector>
 
 namespace csk {
 namespace hook {
 
 // 早期安全日志（DllMain 里 Logger 尚未初始化，直接写文件）
+static std::vector<std::string>& EarlyHookLines() {
+    static std::vector<std::string> v;
+    return v;
+}
+
+// DllMain 里也会走到这里（早期分数 hook）：
+// capnhook 的 iohook 初始化前拦截文件 API 会断言，所以先缓冲。
 static void HookLog(const char* fmt, ...) {
+    char line[1024];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(line, sizeof(line), fmt, ap);
+    va_end(ap);
+    if (!csk::IoReady()) {
+        EarlyHookLines().push_back(line);
+        return;
+    }
     char exeBuf[MAX_PATH]{};
     GetModuleFileNameA(nullptr, exeBuf, sizeof(exeBuf));
     std::string p = exeBuf;
@@ -23,12 +40,23 @@ static void HookLog(const char* fmt, ...) {
     p = DataDirOf(p) + "\\logs\\csk_hook.log";
     FILE* f = fopen(p.c_str(), "a");
     if (!f) return;
-    va_list ap;
-    va_start(ap, fmt);
-    vfprintf(f, fmt, ap);
-    va_end(ap);
-    fprintf(f, "\n");
+    fprintf(f, "%s\n", line);
     fclose(f);
+}
+
+void FlushEarlyLog() {
+    if (EarlyHookLines().empty()) return;
+    char exeBuf[MAX_PATH]{};
+    GetModuleFileNameA(nullptr, exeBuf, sizeof(exeBuf));
+    std::string p = exeBuf;
+    size_t pos = p.find_last_of("\\/");
+    if (pos != std::string::npos) p = p.substr(0, pos);
+    p = DataDirOf(p) + "\\logs\\csk_hook.log";
+    FILE* f = fopen(p.c_str(), "a");
+    if (!f) return;
+    for (auto& l : EarlyHookLines()) fprintf(f, "%s\n", l.c_str());
+    fclose(f);
+    EarlyHookLines().clear();
 }
 
 // 原始指令：mov [esi+0x2FC], edi
@@ -40,6 +68,12 @@ static const uint8_t kOrigSong[8] = {0x89, 0x46, 0x60, 0xE8, 0x53, 0x99, 0x69, 0
 // 难度原始指令：mov byte [eax+0x2C0], bl（6 字节）
 static const uint8_t kOrigDiff[6] = {0x88, 0x98, 0xC0, 0x02, 0x00, 0x00};
 
+// 理论最高分原始指令：mov [rcx+0x18C], eax（6 字节）
+static const uint8_t kOrigMaxScore[6] = {0x89, 0x81, 0x8C, 0x01, 0x00, 0x00};
+
+// 历史最佳分数原始指令：mov [ecx+0x24C], edx（6 字节）
+static const uint8_t kOrigBestScore[6] = {0x89, 0x91, 0x4C, 0x02, 0x00, 0x00};
+
 static volatile uint32_t g_score = 0;
 static volatile uint32_t g_combo = 0;
 static volatile uint32_t g_song_id = 0;
@@ -50,6 +84,10 @@ static bool g_song_installed = false;
 static volatile uint32_t g_diff = 0;
 static bool g_diff_installed = false;
 static bool g_fl_installed = false;
+static bool g_maxscore_installed = false;
+static bool g_bestscore_installed = false;
+static volatile uint32_t g_best_score = 0;
+static volatile uint32_t g_max_score = 0;
 
 extern "C" {
 // 供汇编 stub 读写
@@ -61,6 +99,10 @@ volatile uint32_t csk_hook_song_id = 0;
 volatile uint32_t csk_hook_song_ptr = 0;
 void* csk_hook_song_target = nullptr;
 void* csk_hook_song_back = nullptr;
+volatile uint32_t csk_hook_best_score = 0;
+void* csk_hook_best_score_back = nullptr;
+volatile uint32_t csk_hook_max_score = 0;
+void* csk_hook_max_score_back = nullptr;
 volatile uint32_t csk_hook_diff = 0;
 void* csk_hook_diff_back = nullptr;
 volatile uint32_t csk_hook_fl_main = 0;
@@ -135,6 +177,27 @@ extern "C" __attribute__((naked)) void csk_fl_stub() {
         "movl %ecx, 0x58(%edx)\n\t"
         "movl %esi, %ecx\n\t"
         "jmp *csk_hook_fl_back\n\t"
+    );
+}
+
+// 理论最高分 stub：捕获 eax，重放 mov [rcx+0x18C], eax 后跳回
+extern "C" __attribute__((naked)) void csk_maxscore_stub() {
+    __asm__ __volatile__(
+        "pushal\n\t"
+        "movl %eax, csk_hook_max_score\n\t"
+        "popal\n\t"
+        "movl %eax, 0x18c(%ecx)\n\t"
+        "jmp *csk_hook_max_score_back\n\t"
+    );
+}
+
+extern "C" __attribute__((naked)) void csk_bestscore_stub() {
+    __asm__ __volatile__(
+        "pushal\n\t"
+        "movl %edx, csk_hook_best_score\n\t"
+        "popal\n\t"
+        "movl %edx, 0x24c(%ecx)\n\t"
+        "jmp *csk_hook_best_score_back\n\t"
     );
 }
 
@@ -279,6 +342,44 @@ void ResetFastLate() {
     csk_hook_fl_base = 0;
     csk_hook_fl_val = 0;
 }
+
+
+bool InstallMaxScore() {
+    if (g_maxscore_installed) return true;
+    g_maxscore_installed = InstallAt(kMaxScoreWriteRva, kOrigMaxScore, sizeof(kOrigMaxScore),
+                                     (void*)&csk_maxscore_stub, &csk_hook_max_score,
+                                     &csk_hook_max_score_back);
+    HookLog("max_score hook: %s", g_maxscore_installed ? "ok" : "fail");
+    return g_maxscore_installed;
+}
+
+bool MaxScoreInstalled() { return g_maxscore_installed; }
+
+uint32_t MaxScore() {
+    g_max_score = csk_hook_max_score;
+    return g_max_score;
+}
+
+void ResetMaxScore() {
+    csk_hook_max_score = 0;
+    g_max_score = 0;
+}
+
+
+bool InstallBestScore() {
+    if (g_bestscore_installed) return true;
+    g_bestscore_installed = InstallAt(kBestScoreWriteRva, kOrigBestScore, sizeof(kOrigBestScore),
+                                      (void*)&csk_bestscore_stub, &csk_hook_best_score,
+                                      &csk_hook_best_score_back);
+    HookLog("best_score hook: %s", g_bestscore_installed ? "ok" : "fail");
+    return g_bestscore_installed;
+}
+
+bool BestScoreInstalled() { return g_bestscore_installed; }
+
+uint32_t BestScore() { g_best_score = csk_hook_best_score; return g_best_score; }
+
+void ResetBestScore() { csk_hook_best_score = 0; g_best_score = 0; }
 
 } // namespace hook
 } // namespace csk

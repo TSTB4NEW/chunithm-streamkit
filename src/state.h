@@ -80,6 +80,8 @@ struct Snapshot {
     uint32_t fast_at = 0, late_at = 0;    // NUM_Fast_Attack / NUM_Late_Attack
     // —— 本局进度 ——
     uint32_t score = 0;
+    uint32_t max_score = 0;   // 理论最高分（hook 捕获；0=未知）
+    uint32_t best_score = 0;  // 当前所选谱面的历史最佳（选歌界面）
     uint32_t combo = 0;
     uint32_t max_combo = 0;
     uint32_t note_total = 0;   // 已知谱面音符数；0=未知（由 max_combo 推断）

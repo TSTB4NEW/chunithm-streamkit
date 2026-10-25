@@ -776,6 +776,9 @@ void HttpServer::ServeSse(SOCKET s) {
         clientSeq = app.snap.last_seq; // 只接收连接之后的增量事件
     }
     uint32_t lastState = 0;
+    uint32_t lastSong = 0xFFFFFFFFu;
+    int lastDiff = -99;
+    bool lastInGame = false;
     while (running_.load()) {
         // 1) 增量判定事件
         {
@@ -793,15 +796,28 @@ void HttpServer::ServeSse(SOCKET s) {
                 clientSeq = ev.seq;
             }
         }
-        // 2) 全量状态（200ms 节流）
+        // 2) 全量状态：换歌 / 难度 / 进出游玩 立即推送，其余 50ms 节流
         uint32_t now = now_ms();
-        if (now - lastState >= 200 || lastState == 0) {
+        uint32_t mid = 0;
+        int diff = -1;
+        bool inGame = false;
+        {
+            std::lock_guard<std::mutex> g(app.mtx);
+            mid = app.snap.music_id;
+            diff = app.snap.difficulty;
+            inGame = app.snap.in_game;
+        }
+        bool stateChanged = (mid != lastSong) || (diff != lastDiff) || (inGame != lastInGame);
+        if (stateChanged || lastState == 0 || now - lastState >= 50) {
             lastState = now;
+            lastSong = mid;
+            lastDiff = diff;
+            lastInGame = inGame;
             std::string body = app.BuildStateJson(false);
             std::string pkt = "data: " + body + "\n\n";
             if (send(s, pkt.data(), (int)pkt.size(), 0) <= 0) break;
         }
-        Sleep(33);
+        Sleep(10);
     }
     UnregisterClient(s);
     closesocket(s);
