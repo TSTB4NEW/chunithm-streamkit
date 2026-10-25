@@ -607,7 +607,7 @@ extern "C" __declspec(dllexport) void InitializeASI() {
 }
 
 extern "C" __declspec(dllexport) const char* GetCSKVersion() {
-    return "chunithm-streamkit 1.0.4";
+    return "chunithm-streamkit 1.0.6";
 }
 
 BOOL APIENTRY DllMain(HMODULE h, DWORD reason, LPVOID) {
