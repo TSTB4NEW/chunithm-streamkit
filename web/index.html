@@ -1472,6 +1472,14 @@
   html.skin-game #maxcombo { color: #8b8691; font-size: 18px; }
   /* 待机（没有曲目）时：不显示空的 SCORE / JUDGE 卡片 */
   html.skin-game #panel.standby .playonly { display: none; }
+  /* COMBO 标签：直接使用游戏图集里的 COMBO 字形（遮罩染成文字色） */
+  html.skin-game .cmlbl {
+    display: inline-block; width: 101px; height: 22px;
+    background: currentColor;
+    -webkit-mask: var(--cw, none) no-repeat center / contain;
+    mask: var(--cw, none) no-repeat center / contain;
+  }
+  html.skin-game .cmlbl.glyph { color: #1c1b22; }
 </style>
 </head>
 <body>
@@ -1681,6 +1689,17 @@
 
     fetch('judge_digits.json').then(function (r) { return r.json(); })
       .then(function (j) { JD = j; }).catch(function () {});
+    // COMBO 标签：CHU_UI_Select_optionbox 里的官方字形
+    fetch('combo_word.json').then(function (r) { return r.json(); })
+      .then(function (j) {
+        window.COMBO_WORD = j;
+        var el = document.getElementById('cmlbl');
+        if (el && j && j.m) {
+          el.style.setProperty('--cw', 'url(' + j.m + ')');
+          el.textContent = '';
+          el.classList.add('glyph');
+        }
+      }).catch(function () {});
     fetch('score_digits.json').then(function (r) { return r.json(); })
       .then(function (j) { SCORE_D = j.chars; }).catch(function () {});
     // 评级字母（CHU_UI_Result_Rank_00 原素材）
